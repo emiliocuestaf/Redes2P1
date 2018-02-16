@@ -1,86 +1,72 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include "socket_management.h"
+
+int test = 0;
+
+
+//De momento va a contestar a todo con un mensaje fijo y un numero generado por una variable global. (Esto habra que quitarlo luego) 
+int handle_petition(int clientsock){
+	char* inBuffer[BUFFER_SIZE];
+	char* outBuffer[BUFFER_SIZE];
+
+	recv(handler, inBuffer, BUFFER_SIZE);
+	//Ahora no hacemos nada con lo que nos mandan, en algun momento tendremos aqui un interprete de HTTP y esas cosas
+
+	sprintf(outBuffer, "Wohohoho esto es el paso %d de la reconquista de Movistar!!! La cadena enviada tenia %d caracteres\n\n", test, strlen(inBuffer));
+	test++;
+
+	send(clientsock, outBuffer, strlen(outBuffer), 0);
+}
+
 int main(int argc, char ∗∗argv){
 
-	int listenfd, connfd;
-	socklen_t clilen, addrlen;
-	struct sockaddr ∗cliaddr;
-
-	/∗ Contiene las llamadas a socket(), bind() y listen() ∗/
-	listenfd = Tcp_listen(argv[1], argv[2], &addrlen);
+	int sock;
+	int port;
+	int clientsock;
+	const char* hostName = "localhost"; //No se muy bien como va esto, creo que seria el dominio
+	const char* listenPort = 8080;
+	struct addrinfo* addr;
 	
-	for ( ; ; ) {
-	
-		connfd = Accept(listenfd, cliaddr, &clilen);
+	//ESTA ES UNA IMPLEMENTACION MUY BASICA QUE HABRA 	QUE MEJORAR
+	//La estructura hints se pasa a getaddrinfo con una serie de parametros que queremos que cumpla la direccion que se devuelve en addr
+	struct addrinfo hints;
 
-		process_request(connfd);
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM; 
+	//hints.ai_socktype = SOCK_DGRAM si queremos UDP en lugar de TCP
+	//No obstante, hay algunas funciones mas abajo como accept() o listen() que creo que no fucnionan con udp
+	hints.ai_protocol = 0;
+	//El 0 elige el protocolo que mejor se adapta al resto de campos introducidos.
 
-		Close(connfd);
+	//Define una estructura que nos permite caracterizar el socket
+	if(getaddrinfo(NULL, listenPort, &hints, &addr)){
+		perror("Error en getaddrinfo");
+		return -1;
 	}
 
+	//Inicia el socket. Inluye socket(), bind() y listen()
+	if(sock = server_socket_setup(addr) < 0){
+		perror("Error en server_setup");
+	}
+
+	freeaddrinfo(addr);
+
+
+	while(1){
+
+		//Esta funcion incluye el accept()
+		if((clientsock = accept_connection(sock)) < 0){
+			perror("Error en accept_connection");
+		}
+		handle_petition(clientsock);
+		close(clientsock);
+	}
+
+	//No se por que pongo esto si no va a salir del bucle
+	close(sock);
+	return 0;
 }
 
-int initiate_server(void){
-	int sockval;
-	struct sockaddr_in Direccion;
-
-	syslog (LOG_INFO, "Creating socket");
-	if ( (sockval = socket(AF_INET, SOCK_STREAM, 0)) < 0 ){
-		syslog(LOG_ERR, "Error creating socket");
-		exit(EXIT_FAILURE);
-	}
-
-	Direccion.sin_family=AF_INET; /∗ TCP/IP family ∗/
-	Direccion.sin_port=htons(NFC_SERVER_PORT); /∗ Asigning port ¿Por que este puerto∗/
-	Direccion.sin_addr.s_addr=htonl(INADDR_ANY); /∗ Accept all adresses ∗/
-	bzero((void ∗)&(Direccion.sin_zero), 8);
-
-	syslog (LOG_INFO, "Binding socket");
-
-	if (bind (sockval, (struct sockaddr ∗)&Direccion, sizeof(Direccion))<0){
-		syslog(LOG_ERR, "Error binding socket");
-		exit(EXIT_FAILURE);
-	}
-
-	syslog (LOG_INFO, "Listening connections");
-	if (listen (sockval, MAX_CONNECTIONS)<0){
-		syslog(LOG_ERR, "Error listenining");
-		exit(EXIT_FAILURE);
-	}
-
-	return sockval;
-
-}
-
-void accept_connection(int sockval){
-	int desc, len;
-	struct sockaddr Conexion;
-
-	len =sizeof(Conexion);
-
-	if ((desc = accept(sockval, &Conexion, &len))<0){
-		syslog(LOG_ERR, "Error accepting connection");
-		exit(EXIT_FAILURE);
-	}
-
-	launch_service(desc);
-	wait_finished_services();
-
-	return;
-}
-
-void launch_service(int connval){
-	int pid;
-	long type, aux;
-
-	pid = fork();
-	if (pid < 0) exit(EXIT_FAILURE);
-	if (pid == 0) return;
-	
-	syslog (LOG_INFO, "New access");
-	recv(connval, &aux, sizeof(long), 0);
-	type = ntohl(aux);
-	
-	database_access(connval, type, NULL);
-	close(connval);
-	syslog (LOG_INFO, "Exiting service");
-	exit(EXIT_SUCCESS);
-}
