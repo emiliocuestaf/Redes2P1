@@ -61,7 +61,7 @@ int main(/*int argc, char **argv*/){
 	}
 
 	//Inicia el socket. Inluye socket(), bind() y listen()
-    sock = server_socket_setup(addr);
+    sock = server_socket_setup(addr)
 	if(sock < 0){
 		perror("Error en server_setup");
 	}

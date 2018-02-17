@@ -1,5 +1,7 @@
 #ifndef SOCKET_MANAGEMENT_H
 #define SOCKET_MANAGEMENT_H
+
+#include <netinet/in.h>
 #include <netdb.h>
 
 

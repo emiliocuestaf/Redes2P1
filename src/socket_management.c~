@@ -88,8 +88,7 @@ int server_socket_setup(struct addrinfo* addr){
 
 //Como su propio nombre indica, acepta una conexion. Funcion de las diapositivas
 int accept_connection(int sockval){
-	int desc;
-    socklen_t len;
+	int desc, len;
 	struct sockaddr Conexion;
 
 	len = sizeof(Conexion);
