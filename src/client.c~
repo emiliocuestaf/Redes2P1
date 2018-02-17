@@ -11,7 +11,7 @@
 
 /*Primer argumento, una cadena de caracteres a mandar*/
 int main(int argc, char** argv ){
-	int port;
+	//int port;
 	int clientsock;
 	const char* hostName = "localhost"; //No se muy bien como va esto, creo que seria el dominio
 	const char* listenPort = "8080";

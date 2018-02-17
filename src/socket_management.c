@@ -7,7 +7,7 @@
 #include "socket_management.h"
 
 
-#define MAX_CONNECTIONS 1
+#define MAX_CONNECTIONS 10
 #define BUFFER_SIZE 1000
 
 
@@ -137,7 +137,7 @@ int client_socket_setup(struct addrinfo* addr){
 
 	if(connect(clientsock, addr->ai_addr, addr->ai_addrlen) < 0){
 		close(clientsock);
-		perror("error conectando el cliente");
+		perror("Error conectando el cliente");
 		return -1;
 	}
 

@@ -39,7 +39,7 @@ int main(/*int argc, char **argv*/){
 	int sock;
 	//int port;
 	int clientsock;
-	//const char* hostName = "localhost"; //No se muy bien como va esto, creo que seria el dominio
+	const char* hostName = "localhost"; //No se muy bien como va esto, creo que seria el dominio
 	const char* listenPort = "8080";
 	struct addrinfo* addr;
 	
@@ -48,14 +48,14 @@ int main(/*int argc, char **argv*/){
 	struct addrinfo hints;
 
 	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_STREAM; 
-	//hints.ai_socktype = SOCK_DGRAM si queremos UDP en lugar de TCP
-	//No obstante, hay algunas funciones mas abajo como accept() o listen() que creo que no fucnionan con udp
+	hints.ai_socktype = SOCK_STREAM; // = SOCK_DGRAM si queremos UDP en lugar de TCP
+	                  //No obstante, hay algunas funciones mas abajo como accept() o listen() que creo que no fucnionan con udp
+    hints.ai_flags = AI_ALL; // not sure why
 	hints.ai_protocol = 0;
 	//El 0 elige el protocolo que mejor se adapta al resto de campos introducidos.
 
 	//Define una estructura que nos permite caracterizar el socket
-	if(getaddrinfo(NULL, listenPort, &hints, &addr)){
+	if(getaddrinfo(hostName, listenPort, &hints, &addr)){
 		perror("Error en getaddrinfo");
 		return -1;
 	}
@@ -75,8 +75,10 @@ int main(/*int argc, char **argv*/){
 		if((clientsock = accept_connection(sock)) < 0){
 			perror("Error en accept_connection");
 		}
-		if(handle_petition(clientsock) < 0)
+		if(handle_petition(clientsock) < 0){
+		    close(clientsock);
             break;
+        }
 		close(clientsock);
 	}
 

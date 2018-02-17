@@ -88,7 +88,8 @@ int server_socket_setup(struct addrinfo* addr){
 
 //Como su propio nombre indica, acepta una conexion. Funcion de las diapositivas
 int accept_connection(int sockval){
-	int desc, len;
+	int desc;
+    socklen_t len;
 	struct sockaddr Conexion;
 
 	len = sizeof(Conexion);
@@ -136,7 +137,7 @@ int client_socket_setup(struct addrinfo* addr){
 
 	if(connect(clientsock, addr->ai_addr, addr->ai_addrlen) < 0){
 		close(clientsock);
-		perror("error conectando el cliente");
+		perror("Error conectando el cliente");
 		return -1;
 	}
 
