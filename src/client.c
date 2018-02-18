@@ -12,7 +12,7 @@
 /*Primer argumento, una cadena de caracteres a mandar*/
 int main(int argc, char** argv ){
 	//int port;
-	int clientsock;
+	int clientsock, i;
 	const char* hostName = "localhost"; //No se muy bien como va esto, creo que seria el dominio
 	const char* listenPort = "8080";
 	char buffer[BUFFER_SIZE];
@@ -40,19 +40,25 @@ int main(int argc, char** argv ){
 
 	//Como es logico, ademas de tener info del socket del servidor, tenemos que abrir uno aqui
 	//Configuramos este socket con las mismas opciones que el del servidor para que sean compatibles
-    clientsock = client_socket_setup(addr);
-	if(clientsock < 0 ){
-		perror("Error socket de cliente");
-		return -1;
-	}
 
-	freeaddrinfo(addr);
-	
-	send(clientsock, argv[1], strlen(argv[1]), 0);
+    for(i=0; i < 20; i++){
+        clientsock = client_socket_setup(addr);
+        
+        printf("\nHola, soy este socket: %d", clientsock);
+    
+	    if(clientsock < 0 ){
+		    perror("Error socket de cliente");
+		    return -1;
+	    }
+        
+	    send(clientsock, &(argv[1][i]), 1, 0); // send(clientsock, argv[1], strlen(argv[1]), 0);
 
-	recv(clientsock, buffer, BUFFER_SIZE, 0);
+	    recv(clientsock, buffer, BUFFER_SIZE, 0);
 
-	fprintf(stdout, "%s", buffer);
+	    fprintf(stdout, "\n %s \n", buffer);
+    }
+
+    freeaddrinfo(addr);
 
 	close(clientsock);
   	return 0;

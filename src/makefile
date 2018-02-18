@@ -7,6 +7,7 @@
 # banderas de compilacion (PUEDE SER UTIL CAMBIARLAS)
 CC = gcc
 CFLAGS = -Wextra -std=gnu11 -Wall -g -I .
+LDLIBS = -lconfuse
 
 # fuentes a considerar (si no se cambia, todos los '.c' del directorio actual)
 SOURCES = $(shell ls -1 *.c* | xargs)
@@ -43,7 +44,7 @@ server: server.o socket_management.o
 # receta para hacer un ejecutable (suponiendo resto de dependencias OK)
 % :	%.o
 	@echo -n compilando ejecutable \'$@\'...
-	@$(CC) $(CFLAGS) $^ -o $@
+	@$(CC) $(CFLAGS) $^ -o $@ $(LDLIBS)
 	@echo [OK]
 
 # limpieza
