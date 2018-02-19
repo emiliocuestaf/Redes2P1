@@ -1,3 +1,13 @@
+/*******************************************************
+* PRÁCTICAS DE REDES 2
+* Practica 1
+* Autores:
+* 	-Luis Carabe Fernandez-Pedraza
+*	-Emilio Cuesta Fernandez
+* Descripcion:
+*	Modulo principal de un servidor web.
+********************************************************/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -12,9 +22,16 @@
 
 #define BUFFER_SIZE 10000 //No se que poner
 
-int test = 0;
+//Estructura para pasar argumentos al thread
+typedef struct _args{
+    int dim;
+} args;
 
-void SIGINT_handler();
+void SIGINT_handler(){
+	//Liberacion de recursos, deberian ser variables globales??
+	exit(-1);
+};
+
 
 
 //De momento va a contestar a todo con un mensaje fijo y un numero generado por una variable global. (Esto habra que quitarlo luego) 
@@ -28,10 +45,8 @@ int handle_petition(int clientsock){
     }
 	//Ahora no hacemos nada con lo que nos mandan, en algun momento tendremos aqui un interprete de HTTP y esas cosas
 
-	/*sprintf(outBuffer, "Wohohoho esto es el paso %d de la reconquista de Movistar!!! La cadena enviada tenia %zu caracteres\n\n", test, strlen(inBuffer));*/
-
     sprintf(outBuffer, "%c", inBuffer[0]);
-	test++;
+    sleep(1);
 
 	if(send(clientsock, outBuffer, strlen(outBuffer), 0) < 0){
         perror("Error en send");
@@ -43,22 +58,25 @@ int handle_petition(int clientsock){
 
 int main(/*int argc, char **argv*/){
 
-	int sock,i=0;
-	//int port;
-	int clientsock[1000];
-	const char* hostName = "localhost"; //No se muy bien como va esto, creo que seria el dominio
+	int sock;
+	int clientsock;
+	const char* hostName = "localhost"; 
 	struct addrinfo* addr;
 
+	//Senales para parseo de server.conf
+    cfg_t *cfg;
     static char* server_root = NULL;
     static long int max_clients = 0;
     static char* listen_port = NULL;
     static char* server_signature = NULL;
 
+    //Senial de finalizacion
     if(signal (SIGINT, SIGINT_handler)==SIG_ERR){
         perror("Error definiendo SIGINT_handler");
         return -1;
     }
 
+    //Parseo de server.conf
     cfg_opt_t opts[] = {
 		CFG_SIMPLE_STR("server_root", &server_root),
 		CFG_SIMPLE_INT("max_clients", &max_clients),
@@ -66,7 +84,7 @@ int main(/*int argc, char **argv*/){
 		CFG_SIMPLE_STR("server_signature", &server_signature),
 		CFG_END()
 	};
-	cfg_t *cfg;
+	
 
     cfg = cfg_init(opts, 0);
     cfg_parse(cfg, "server.conf");
@@ -76,64 +94,58 @@ int main(/*int argc, char **argv*/){
     printf("listen_port: %s\n", listen_port);
     printf("server_signature: %s\n", server_signature);
 	
-	//ESTA ES UNA IMPLEMENTACION MUY BASICA QUE HABRA 	QUE MEJORAR
 	//La estructura hints se pasa a getaddrinfo con una serie de parametros que queremos que cumpla la direccion que se devuelve en addr
 	struct addrinfo hints;
 
 	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_STREAM; // = SOCK_DGRAM si queremos UDP en lugar de TCP
-	                  //No obstante, hay algunas funciones mas abajo como accept() o listen() que creo que no fucnionan con udp
+	hints.ai_socktype = SOCK_STREAM; 
+	// = SOCK_DGRAM si queremos UDP en lugar de TCP
+	//No obstante, hay algunas funciones mas abajo como accept() o listen() que creo que no fucnionan con udp
     hints.ai_flags = AI_ALL; // not sure why
 	hints.ai_protocol = 0;
 	//El 0 elige el protocolo que mejor se adapta al resto de campos introducidos.
 
 	//Define una estructura que nos permite caracterizar el socket
-	if(getaddrinfo(hostName, listen_port, &hints, &addr)){
+	if(getaddrinfo(NULL, listen_port, &hints, &addr)){
 		perror("Error en getaddrinfo");
 		return -1;
 	}
 
 	//Inicia el socket. Inluye socket(), bind() y listen()
-    sock = server_socket_setup(addr);
+    sock = server_socket_setup(addr, max_clients);
 	if(sock < 0){
 		perror("Error en server_setup");
 	}
 
 	freeaddrinfo(addr);
 
-
+	int pid = 0;
+	//Rutina de procesamiento
 	while(1){
 
 		//Esta funcion incluye el accept()
-        clientsock[i] = accept_connection(sock);
-        printf("\n vamo a ver que cliente viene: %d \n", clientsock[i]);;
-		if(clientsock[i] < 0){
+        clientsock = accept_connection(sock);
+		if(clientsock < 0){
 			perror("Error en accept_connection");
 		}
-		if(handle_petition(clientsock[i]) < 0){
-		    close(clientsock[i]);
-            break;
-        }
-        i++;
+
+		//Solo el hijo procesa la peticion (con el sleep) para que el padre pueda seguir aceptando
+		if(handle_petition(clientsock) < 0){
+			    close(clientsock);
+	            break;
+	    }
+	        close(clientsock);
+    	//	exit(EXIT_SUCCESS);
+    	
 		//close(clientsock);
 	}
     
     /*Habra que meter estas cosas en el handle de ctrl-c*/
-
+    /*No se como hacer si no son variables globales*/
     cfg_free(cfg);
     free(server_root);
     free(server_signature);
     free(listen_port);
-
-	//No se por que pongo esto si no va a salir del bucle
 	close(sock);
 	return 0;
 }
-
-
-void SIGINT_handler(){
-
-    printf("Aquí habrá que liberar y cerrar cosas");
-
-}
-

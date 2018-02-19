@@ -1,3 +1,13 @@
+/*******************************************************
+* PRÁCTICAS DE REDES 2
+* Practica 1
+* Autores:
+* 	-Luis Carabe Fernandez-Pedraza
+*	-Emilio Cuesta Fernandez
+* Descripcion:
+*	Unidad de manejo de sockets
+********************************************************/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -6,8 +16,6 @@
 #include <unistd.h>
 #include "socket_management.h"
 
-
-#define MAX_CONNECTIONS 10
 #define BUFFER_SIZE 1000
 
 
@@ -37,7 +45,7 @@ struct in_addr {
 
 
 //Funcion de las diapos algo modificada
-int server_socket_setup(struct addrinfo* addr){
+int server_socket_setup(struct addrinfo* addr, int max_clients){
 	int sockval;
 	int opt;
 	//Ojo, sockaddr_in para que sea un servidor de internet, sockaddr_un, para que sea local
@@ -54,9 +62,10 @@ int server_socket_setup(struct addrinfo* addr){
 	//Direccion.sin_family=AF_INET; /* TCP/IP family */
 	//Direccion.sin_port=htons(NFC_SERVER_PORT); /* Assigning port ¿Por que este puerto? Diria que es al azar*/
 	
+	//Pa mi que esto es importante
 	//Estas no lo tengo nada claro
 	//Direccion.sin_addr.s_addr=htonl(INADDR_ANY); /* Accept all adresses */
-	//bzero((void *)&(Direccion.sin_zero), 8); /*Parece bastante irrelevante poner esto a 0 o no segun Internet*/
+	//bzero((void *)&(Direccion.sin_zero), 8); 
 
 	//Copypaste de Internet, aun no se que hace, lo dejo porsiaca
 	opt = 1;
@@ -76,7 +85,7 @@ int server_socket_setup(struct addrinfo* addr){
 	syslog(LOG_INFO, "Listening connections");
 	//Listen activa una rutina de recepcion y encolado de peticiones en "segundo plano". Una vez se llama a esta 
 	//funcion el socket se queda escuchando (imagino que hasta su cierre o hasta que se le indique que pare)
-	if (listen (sockval, MAX_CONNECTIONS)<0){
+	if (listen (sockval, max_clients)<0){
 		syslog(LOG_ERR, "Error listenining");
 		exit(EXIT_FAILURE);
 	}

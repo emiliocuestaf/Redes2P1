@@ -1,3 +1,13 @@
+/*******************************************************
+* PRÁCTICAS DE REDES 2
+* Practica 1
+* Autores:
+* 	-Luis Carabe Fernandez-Pedraza
+*	-Emilio Cuesta Fernandez
+* Descripcion:
+*	Cliente para simular el funcionamiento del servidor
+********************************************************/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,7 +23,7 @@
 int main(int argc, char** argv ){
 	//int port;
 	int clientsock, i;
-	const char* hostName = "localhost"; //No se muy bien como va esto, creo que seria el dominio
+	const char* hostName =  NULL; //No se muy bien como va esto, creo que seria el dominio
 	const char* listenPort = "8080";
 	char buffer[BUFFER_SIZE];
 	struct addrinfo* addr;
@@ -40,26 +50,33 @@ int main(int argc, char** argv ){
 
 	//Como es logico, ademas de tener info del socket del servidor, tenemos que abrir uno aqui
 	//Configuramos este socket con las mismas opciones que el del servidor para que sean compatibles
+	int pid;
+    for(i=0; i < 10; i++){
+        pid = fork();
+        if(pid == 0){
+        	clientsock = client_socket_setup(addr);  
+			if(clientsock < 0 ){
+				perror("Error socket de cliente");
+				//return -1;
+				exit(EXIT_SUCCESS);
+			}			
+		    send(clientsock, &(argv[1][i]), 1, 0); // send(clientsock, argv[1], strlen(argv[1]), 0);
 
-    for(i=0; i < 20; i++){
-        clientsock = client_socket_setup(addr);
-        
-        printf("\nHola, soy este socket: %d", clientsock);
-    
-	    if(clientsock < 0 ){
-		    perror("Error socket de cliente");
-		    return -1;
-	    }
-        
-	    send(clientsock, &(argv[1][i]), 1, 0); // send(clientsock, argv[1], strlen(argv[1]), 0);
+		    recv(clientsock, buffer, BUFFER_SIZE, 0);
 
-	    recv(clientsock, buffer, BUFFER_SIZE, 0);
+		    fprintf(stdout, "\n %s \n", buffer);
 
-	    fprintf(stdout, "\n %s \n", buffer);
+		    exit(EXIT_SUCCESS);
+		}
+	   
+    }
+
+    for (i = 0; i<10; i++){
+    	wait(NULL);
     }
 
     freeaddrinfo(addr);
 
-	close(clientsock);
+	//close(clientsock);
   	return 0;
 }
