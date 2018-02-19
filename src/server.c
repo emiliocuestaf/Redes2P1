@@ -22,13 +22,26 @@
 
 #define BUFFER_SIZE 10000 //No se que poner
 
+int sock;
+cfg_t *cfg;
+
+//Seniales parseo de server conf
+static char* server_root = NULL;
+static long int max_clients = 0;
+static char* listen_port = NULL;
+static char* server_signature = NULL;
+
 //Estructura para pasar argumentos al thread
 typedef struct _args{
     int dim;
 } args;
 
 void SIGINT_handler(){
-	//Liberacion de recursos, deberian ser variables globales??
+	cfg_free(cfg);
+    free(server_root);
+    free(server_signature);
+    free(listen_port);
+	close(sock);
 	exit(-1);
 };
 
@@ -58,17 +71,11 @@ int handle_petition(int clientsock){
 
 int main(/*int argc, char **argv*/){
 
-	int sock;
+	
 	int clientsock;
 	const char* hostName = "localhost"; 
 	struct addrinfo* addr;
-
-	//Senales para parseo de server.conf
-    cfg_t *cfg;
-    static char* server_root = NULL;
-    static long int max_clients = 0;
-    static char* listen_port = NULL;
-    static char* server_signature = NULL;
+   
 
     //Senial de finalizacion
     if(signal (SIGINT, SIGINT_handler)==SIG_ERR){
@@ -140,12 +147,5 @@ int main(/*int argc, char **argv*/){
 		//close(clientsock);
 	}
     
-    /*Habra que meter estas cosas en el handle de ctrl-c*/
-    /*No se como hacer si no son variables globales*/
-    cfg_free(cfg);
-    free(server_root);
-    free(server_signature);
-    free(listen_port);
-	close(sock);
 	return 0;
 }
