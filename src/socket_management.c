@@ -43,6 +43,29 @@ struct in_addr {
     unsigned long s_addr;  // load with inet_aton()
 }; */
 
+int socket_create(struct addrinfo* addr){
+    if(addr == NULL)
+        return -1;
+    return socket(addr->ai_family, addr->ai_socktype,  addr->ai_protocol);
+}
+
+int socket_bind(struct addrinfo* addr, int sockval){
+    if(addr == NULL || sockval < 0)
+        return -1;
+    return bind(sockval, addr->ai_addr, addr->ai_addrlen);
+}
+
+int socket_listen(int sockval, int max_clients){
+    if(max_clients < 0 || sockval < 0)
+        return -1;
+    return listen (sockval, max_clients);
+}
+
+int socket_connect(int clientsock, struct addrinfo* addr){
+    if(clientsock < 0 || addr == NULL)
+        return -1;
+    return connect(clientsock, addr->ai_addr, addr->ai_addrlen);
+}
 
 //Funcion de las diapos algo modificada
 int server_socket_setup(struct addrinfo* addr, int max_clients){
@@ -53,9 +76,10 @@ int server_socket_setup(struct addrinfo* addr, int max_clients){
 	//struct sockaddr_in Direccion;
 
 	syslog (LOG_INFO, "Creating socket");
-	if ( (sockval = socket(addr->ai_family, addr->ai_socktype, 0)) < 0 ){
+	sockval = socket_create(addr);
+	if (sockval < 0 ){
 		syslog(LOG_ERR, "Error creating socket");
-		exit(EXIT_FAILURE);
+		return -1;
 	}
 
 	//Estas dos asignaciones las satisface el campo ai_addr de addr fijo 
@@ -71,23 +95,23 @@ int server_socket_setup(struct addrinfo* addr, int max_clients){
 	opt = 1;
 	if (setsockopt(sockval, SOL_SOCKET, SO_REUSEADDR,
                    &opt, sizeof(int)) < 0) {
-      perror("[bindListener:43:setsockopt]");
+      syslog(LOG_ERR, "[bindListener:43:setsockopt]");
       return -1;
     }
 
 	syslog (LOG_INFO, "Binding socket");
 
-	if (bind(sockval, addr->ai_addr, addr->ai_addrlen) < 0){
+	if (socket_bind(addr, sockval) < 0){
 		syslog(LOG_ERR, "Error binding socket");
-		exit(EXIT_FAILURE);
+		return -1;
 	}
 
 	syslog(LOG_INFO, "Listening connections");
 	//Listen activa una rutina de recepcion y encolado de peticiones en "segundo plano". Una vez se llama a esta 
 	//funcion el socket se queda escuchando (imagino que hasta su cierre o hasta que se le indique que pare)
-	if (listen (sockval, max_clients)<0){
+	if (socket_listen(sockval, max_clients) < 0){
 		syslog(LOG_ERR, "Error listenining");
-		exit(EXIT_FAILURE);
+		return -1;
 	}
 
 	return sockval;
@@ -137,16 +161,16 @@ int accept_connection(int sockval){
 int client_socket_setup(struct addrinfo* addr){
 	int clientsock;
     
-    clientsock = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
+    clientsock = socket_create(addr);
 	if(clientsock < 0){
-			perror("Error en clientsock");
+			syslog(LOG_ERR, "Error en clientsock");
 			return -1;
 	}
 
 
-	if(connect(clientsock, addr->ai_addr, addr->ai_addrlen) < 0){
+	if(socket_connect(clientsock, addr) < 0){
 		close(clientsock);
-		perror("Error conectando el cliente");
+		syslog(LOG_ERR, "Error conectando el cliente");
 		return -1;
 	}
 
