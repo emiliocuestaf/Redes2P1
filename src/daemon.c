@@ -1,3 +1,9 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include "daemon.h"
+
+
 void do_daemon(void){
 	pid_t pid;
 

@@ -21,7 +21,7 @@ DEPS = $(shell echo $(SOURCES) | sed -e 's:\.c[p]*:\.d:g')
 
 all:    client server 
 
-client:	client.o socket_management.o
+client:	client.o socket_management.o daemon.o
 
 server: server.o socket_management.o
 
