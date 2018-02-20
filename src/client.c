@@ -15,6 +15,8 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include "socket_management.h"
 
 #define BUFFER_SIZE 10000 //No se que poner
@@ -66,7 +68,7 @@ int main(int argc, char** argv ){
 
 		    fprintf(stdout, "\n %s \n", buffer);
 
-		    exit(EXIT_SUCCESS);
+		    return 0;
 		}
 	   
     }
@@ -78,5 +80,5 @@ int main(int argc, char** argv ){
     freeaddrinfo(addr);
 
 	//close(clientsock);
-  	return 0;
+    return 0;
 }
