@@ -14,6 +14,7 @@
 #include <netinet/in.h>
 #include <syslog.h>
 #include <unistd.h>
+#include <string.h>
 #include "socket_management.h"
 
 #define BUFFER_SIZE 1000
@@ -66,6 +67,21 @@ int socket_connect(int clientsock, struct addrinfo* addr){
         return -1;
     return connect(clientsock, addr->ai_addr, addr->ai_addrlen);
 }
+
+int myReceive (int clientsock, char* inBuffer){
+    if(inBuffer == NULL)
+        return -1;
+    
+    return recv(clientsock, inBuffer, BUFFER_SIZE, 0);
+}
+
+int mySend (int clientsock, char* outBuffer){
+    if(outBuffer == NULL)
+        return -1;
+
+    return send(clientsock, outBuffer, strlen(outBuffer), 0);
+}
+
 
 //Funcion de las diapos algo modificada
 int server_socket_setup(struct addrinfo* addr, int max_clients){

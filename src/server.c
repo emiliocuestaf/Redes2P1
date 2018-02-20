@@ -48,29 +48,20 @@ void SIGINT_handler(){
 
 
 //De momento va a contestar a todo con un mensaje fijo y un numero generado por una variable global. (Esto habra que quitarlo luego) 
-int handle_petition(int clientsock){
-	char inBuffer[BUFFER_SIZE];
-	char outBuffer[BUFFER_SIZE];
+int handle_petition(char* inBuffer, char* outBuffer){
 
-	if(recv(clientsock, inBuffer, BUFFER_SIZE, 0) < 0){
-        perror("Error en recv");
-        return -1;
-    }
 	//Ahora no hacemos nada con lo que nos mandan, en algun momento tendremos aqui un interprete de HTTP y esas cosas
 
     sprintf(outBuffer, "%c", inBuffer[0]);
     sleep(1);
-
-	if(send(clientsock, outBuffer, strlen(outBuffer), 0) < 0){
-        perror("Error en send");
-        return -1;
-    }
 
     return 0;
 }
 
 int main(/*int argc, char **argv*/){
 
+    char inBuffer[BUFFER_SIZE];
+	char outBuffer[BUFFER_SIZE];
 	
 	int clientsock;
 	const char* hostName = "localhost"; 
@@ -135,12 +126,23 @@ int main(/*int argc, char **argv*/){
 		if(clientsock < 0){
 			perror("Error en accept_connection");
 		}
-
+		
+	    if(myReceive(clientsock, inBuffer) < 0){
+            perror("Error en recv");
+            return -1;
+        }
+        
 		//Solo el hijo procesa la peticion (con el sleep) para que el padre pueda seguir aceptando
-		if(handle_petition(clientsock) < 0){
+		if(handle_petition(inBuffer, outBuffer) < 0){
 			    close(clientsock);
 	            break;
 	    }
+	    
+	    if(mySend(clientsock, outBuffer) < 0){
+            perror("Error en send");
+            return -1;
+        }   
+        
 	    close(clientsock);
     	//	exit(EXIT_SUCCESS);
     	
