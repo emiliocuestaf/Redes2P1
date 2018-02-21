@@ -7,7 +7,7 @@
 # banderas de compilacion (PUEDE SER UTIL CAMBIARLAS)
 CC = gcc
 CFLAGS = -Wextra -std=gnu11 -Wall -g -I .
-LDLIBS = -lconfuse
+LDLIBS = -lconfuse -lpthread -lm
 
 # fuentes a considerar (si no se cambia, todos los '.c' del directorio actual)
 SOURCES = $(shell ls -1 *.c* | xargs)
@@ -21,7 +21,7 @@ DEPS = $(shell echo $(SOURCES) | sed -e 's:\.c[p]*:\.d:g')
 
 all:    client server 
 
-client:	client.o socket_management.o daemon.o procpool.o semaforos.o
+client:	client.o socket_management.o daemon.o threadPool.o
 
 server: server.o socket_management.o
 

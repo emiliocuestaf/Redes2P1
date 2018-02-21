@@ -68,14 +68,14 @@ int socket_connect(int clientsock, struct addrinfo* addr){
     return connect(clientsock, addr->ai_addr, addr->ai_addrlen);
 }
 
-int myReceive (int clientsock, char* inBuffer){
+int my_receive (int clientsock, char* inBuffer){
     if(inBuffer == NULL)
         return -1;
     
-    return recv(clientsock, inBuffer, BUFFER_SIZE, 0);
+    return recv(clientsock, inBuffer, strlen(inBuffer), 0);
 }
 
-int mySend (int clientsock, char* outBuffer){
+int my_send (int clientsock, char* outBuffer){
     if(outBuffer == NULL)
         return -1;
 

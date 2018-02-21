@@ -21,8 +21,8 @@ int socket_create(struct addrinfo* addr);
 int socket_bind(struct addrinfo* addr, int sockval);
 int socket_listen(int sockval, int max_client);
 int socket_connect(int clientsock, struct addrinfo* addr);
-int myReceive (int clientsock, char* inBuffer);
-int mySend (int clientsock, char* outBuffer);
+int my_receive (int clientsock, char* inBuffer);
+int my_send (int clientsock, char* outBuffer);
 
 
 #endif
