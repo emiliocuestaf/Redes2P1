@@ -21,16 +21,17 @@
 
 #define BUFFER_SIZE 1000
 
-
-
 typedef struct _threadPool{
 	int numThr;
 	pthread_t* threadList;
 	int listeningSocketDescr;
 	int (*handler_pointer)(char*, char*);
+	long int buffSize;
 	//Hemos visto que accept es thread-safe (nos fiamos 100% de stackoverflow)
 	//int acceptSemId;
 } threadPool;
+
+
 
 void* thread_behaviour(void* args){    
     threadPool* datos = (threadPool*) args;
@@ -39,10 +40,11 @@ void* thread_behaviour(void* args){
     char outBuffer[BUFFER_SIZE];
 
     int (*handler)(char*, char*) = datos->handler_pointer;
-    while(1){
 
+    while(1){
         	socket = accept_connection(datos->listeningSocketDescr);
-			//while(1) (para mantener conexion abierta)
+			if(socket == -1)
+				pthread_exit(NULL);
 			my_receive(socket, inBuffer);
 			handler(inBuffer, outBuffer);
 			my_send(socket, outBuffer);
@@ -57,35 +59,27 @@ threadPool* pool_ini(int numThr, int listeningSocketDescr, int(*handler_pointer)
 	int i;
 	threadPool* pool;
 	sigset_t set;
-
+	
 	pool = (threadPool*) malloc (sizeof (threadPool));
 	pool->numThr = numThr;
 	pool->listeningSocketDescr = listeningSocketDescr;
 	pool->handler_pointer = handler_pointer;
-
-	//inisemaforos (muy importante iniciar antes)
 	
 	pool->threadList = (pthread_t *)malloc(numThr*sizeof(pthread_t));
-
 
     sigemptyset(&set);
     sigaddset(&set, SIGINT);
     if (pthread_sigmask(SIG_BLOCK, &set, NULL) == 0)
         syslog(LOG_ERR, "error mascara de bloqueo de SIGINT de threads");
 
-
 	for(i = 0; i < numThr; i++){
-    	pthread_create(&pool->threadList[i], NULL, thread_behaviour, (void*) pool);
+    	if(pthread_create(&pool->threadList[i], NULL, thread_behaviour, (void*) pool)!= 0){
+    		i--;
+    	}
     }
-
-    sigemptyset(&set);
-    if (pthread_sigmask(SIG_BLOCK, &set, NULL) == 0)
-        syslog(LOG_ERR, "error mascara de bloqueo de SIGINT de hilo principal");
 	
 	return pool;
 }
-
-
 
 void pool_free(threadPool* pool){
 	int i;
@@ -93,7 +87,6 @@ void pool_free(threadPool* pool){
 		pthread_cancel(pool->threadList[i]);
 	}
 	free(pool->threadList);
-	free(pool->handler_pointer);
 	free(pool);
 	return;	
 }

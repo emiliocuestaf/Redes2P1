@@ -145,7 +145,7 @@ int accept_connection(int sockval){
     desc = accept(sockval, &Conexion, &len);
 	if (desc <0){
 		syslog(LOG_ERR, "Error accepting connection");
-		exit(EXIT_FAILURE);
+		return -1;
 	}
 
 	return desc;

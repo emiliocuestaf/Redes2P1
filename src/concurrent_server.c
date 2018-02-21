@@ -46,7 +46,7 @@ void SIGINT_handler(){
     free(server_root);
     free(server_signature);
     free(listen_port);
-    //pool_free(pool);
+    pool_free(pool);
 	close(sock);
 	exit(-1);
 };
@@ -66,15 +66,9 @@ int handle_petition(char* inBuffer, char* outBuffer){
 
 int main(/*int argc, char **argv*/){
 
-
+	sigset_t set;
 	const char* hostName = "localhost"; 
 	struct addrinfo* addr;
-
-    //Senial de finalizacion
-    if(signal (SIGINT, SIGINT_handler)==SIG_ERR){
-        perror("Error definiendo SIGINT_handler");
-        return -1;
-    }
 
     //Parseo de server.conf
     cfg_opt_t opts[] = {
@@ -122,6 +116,17 @@ int main(/*int argc, char **argv*/){
 	freeaddrinfo(addr);
 
     pool = pool_ini(max_clients, sock, handle_petition);
+
+    sigemptyset(&set);
+    sigaddset(&set, SIGINT);
+    if (pthread_sigmask(SIG_UNBLOCK, &set, NULL) == 0)
+        syslog(LOG_ERR, "error mascara de bloqueo de SIGINT de hilo principal");
+
+      //Senial de finalizacion
+    if(signal (SIGINT, SIGINT_handler)==SIG_ERR){
+        perror("Error definiendo SIGINT_handler");
+        return -1;
+    }
 
 	while(1);
     
