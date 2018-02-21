@@ -115,7 +115,7 @@ int main(/*int argc, char **argv*/){
 
 	freeaddrinfo(addr);
 
-    pool = pool_ini(max_clients, sock, handle_petition);
+    pool = pool_ini(max_clients, sock, buf_size, handle_petition);
 
     sigemptyset(&set);
     sigaddset(&set, SIGINT);

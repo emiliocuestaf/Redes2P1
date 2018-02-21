@@ -45,7 +45,7 @@ void* thread_behaviour(void* args){
         	socket = accept_connection(datos->listeningSocketDescr);
 			if(socket == -1)
 				pthread_exit(NULL);
-			my_receive(socket, inBuffer);
+			my_receive(socket, inBuffer, datos->buffSize);
 			handler(inBuffer, outBuffer);
 			my_send(socket, outBuffer);
 			close(socket);
@@ -55,7 +55,7 @@ void* thread_behaviour(void* args){
     
 }
 
-threadPool* pool_ini(int numThr, int listeningSocketDescr, int(*handler_pointer)(char*, char*)){
+threadPool* pool_ini(int numThr, int listeningSocketDescr, int buffSize, int(*handler_pointer)(char*, char*)){
 	int i;
 	threadPool* pool;
 	sigset_t set;
@@ -64,6 +64,7 @@ threadPool* pool_ini(int numThr, int listeningSocketDescr, int(*handler_pointer)
 	pool->numThr = numThr;
 	pool->listeningSocketDescr = listeningSocketDescr;
 	pool->handler_pointer = handler_pointer;
+	pool->buffSize = buffSize;
 	
 	pool->threadList = (pthread_t *)malloc(numThr*sizeof(pthread_t));
 
