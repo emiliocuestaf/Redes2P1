@@ -17,10 +17,9 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 
-
-
 typedef struct _threadPool threadPool;
-threadPool* pool_ini(int numProc, int n, int listeningSocketDescr, void(*handler_pointer)(char*, char*));
+
+threadPool* pool_ini(int numProc, int listeningSocketDescr, int(*handler_pointer)(char*, char*));
 void pool_free(threadPool* pool);
 
 #endif

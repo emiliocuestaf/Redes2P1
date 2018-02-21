@@ -5,7 +5,7 @@
 * 	-Luis Carabe Fernandez-Pedraza
 *	-Emilio Cuesta Fernandez
 * Descripcion:
-*	Modulo principal de un servidor web.
+*	Modulo principal de un servidor web concurrente (pool de threads).
 ********************************************************/
 
 #include <stdio.h>
@@ -20,11 +20,12 @@
 #include <syslog.h>
 #include "confuse.h"
 #include "socket_management.h"
-#include "picohttpparser.h"
-
+#include "http_processing.h"
+#include "threadPool.h"
 
 int sock;
 cfg_t *cfg;
+threadPool* pool;
 
 //Seniales parseo de server conf
 static char* server_root = NULL;
@@ -45,63 +46,10 @@ void SIGINT_handler(){
     free(server_root);
     free(server_signature);
     free(listen_port);
+    //pool_free(pool);
 	close(sock);
 	exit(-1);
 };
-
-/*Funcion que parsea una peticion HTTP*/
-
-int parse_petition(char* inBuffer, char* outBuffer){
-    char *method, *path;
-    int pret, minor_version;
-    struct phr_header headers[100];
-    size_t method_len, path_len, num_headers;
-    unsigned int i;
-
-    
-    num_headers = sizeof(headers) / sizeof(headers[0]);
-    
-    /*LLamamos a la funcion que se encarga de parsear la peticion*/
-    
-    printf("%s\n", inBuffer);
-    pret = phr_parse_request(inBuffer, (ssize_t) strlen(inBuffer), (const char**)&method, &method_len,(const char**) &path, &path_len, &minor_version, headers, &num_headers, (size_t) 0);
-    
-    if ((pret == -1) || (strlen(inBuffer) == sizeof(inBuffer))){
-        printf("Error parseando HTTP.\n");
-        return -1;
-        }
-    
-
-    printf("request is %d bytes long\n", pret);
-    printf("method is %.*s\n", (int)method_len, method);
-    printf("path is %.*s\n", (int)path_len, path);
-    printf("HTTP version is 1.%d\n", minor_version);
-    printf("headers:\n");
-    for (i = 0; i != num_headers; ++i) {
-        printf("%.*s: %.*s\n", (int)headers[i].name_len, headers[i].name,
-               (int)headers[i].value_len, headers[i].value);
-    }
-    
-    return 0;
-    
-}
-
-/*Funcion que habra que cambiar ya que responde siempre lo mismo I think*/
-
-int response_petition(char* inBuffer, char* outBuffer){
-    int minor_version;
-    int status;
-    const char *msg;
-    size_t msg_len;
-    struct phr_header headers[4];
-    size_t num_headers;
-     
-    sprintf(outBuffer, "HTTP/1.0 200 OK\r\n\r\n");
-    
-    phr_parse_response(outBuffer, strlen(outBuffer), &minor_version, &status, &msg, &msg_len, headers, &num_headers, 0);
-    
-    return 0;
-}
 
 //De momento va a contestar a todo con un mensaje fijo y un numero generado por una variable global. (Esto habra que quitarlo luego) 
 int handle_petition(char* inBuffer, char* outBuffer){
@@ -118,13 +66,9 @@ int handle_petition(char* inBuffer, char* outBuffer){
 
 int main(/*int argc, char **argv*/){
 
-    //char* inBuffer;
-	//char* outBuffer;
-	
-	int clientsock;
+
 	const char* hostName = "localhost"; 
 	struct addrinfo* addr;
-   
 
     //Senial de finalizacion
     if(signal (SIGINT, SIGINT_handler)==SIG_ERR){
@@ -152,9 +96,6 @@ int main(/*int argc, char **argv*/){
     printf("server_signature: %s\n", server_signature);
     printf("buf_size: %ld\n", buf_size);
 	
-
-    char inBuffer[buf_size];
-    char outBuffer[buf_size];
 	//La estructura hints se pasa a getaddrinfo con una serie de parametros que queremos que cumpla la direccion que se devuelve en addr
 	struct addrinfo hints;
 
@@ -180,36 +121,9 @@ int main(/*int argc, char **argv*/){
 
 	freeaddrinfo(addr);
 
-	int pid = 0;
-	//Rutina de procesamiento
-	while(1){
+    pool = pool_ini(max_clients, sock, handle_petition);
 
-		//Esta funcion incluye el accept()
-        clientsock = accept_connection(sock);
-		if(clientsock < 0){
-			perror("Error en accept_connection");
-		}
-		
-	    if(my_receive(clientsock, inBuffer) < 0){
-            perror("Error en recv");
-            return -1;
-        }
-		//Solo el hijo procesa la peticion (con el sleep) para que el padre pueda seguir aceptando
-		if(handle_petition(inBuffer, outBuffer) < 0){
-			    close(clientsock);
-	            break;
-	    }
-	    
-	    if(my_send(clientsock, outBuffer) < 0){
-            perror("Error en send");
-            return -1;
-        }   
-        
-	    close(clientsock);
-    	//	exit(EXIT_SUCCESS);
-    	
-		//close(clientsock);
-	}
+	while(1);
     
 	return 0;
 }

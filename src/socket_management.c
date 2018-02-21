@@ -72,7 +72,7 @@ int my_receive (int clientsock, char* inBuffer){
     if(inBuffer == NULL)
         return -1;
     
-    return recv(clientsock, inBuffer, strlen(inBuffer), 0);
+    return recv(clientsock, inBuffer, BUFFER_SIZE, 0);
 }
 
 int my_send (int clientsock, char* outBuffer){
@@ -150,28 +150,7 @@ int accept_connection(int sockval){
 
 	return desc;
 	
-	//launch_service(desc);
-	//wait_finished_services();
 }
-
-
-/*void launch_service(int connval){
-	int pid;
-	long type, aux;
-
-	pid = fork();
-	if (pid < 0) exit(EXIT_FAILURE);
-	if (pid == 0) return;
-	
-	syslog (LOG_INFO, "New access");
-	recv(connval, &aux, sizeof(long), 0);
-	type = ntohl(aux);
-	
-	database_access(connval, type, NULL);
-	close(connval);
-	syslog (LOG_INFO, "Exiting service");
-	exit(EXIT_SUCCESS);
-}*/
 
 
 int client_socket_setup(struct addrinfo* addr){
@@ -182,7 +161,6 @@ int client_socket_setup(struct addrinfo* addr){
 			syslog(LOG_ERR, "Error en clientsock");
 			return -1;
 	}
-
 
 	if(socket_connect(clientsock, addr) < 0){
 		close(clientsock);

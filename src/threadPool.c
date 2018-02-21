@@ -24,21 +24,21 @@
 
 
 typedef struct _threadPool{
-	int numProc;
+	int numThr;
 	pthread_t* threadList;
 	int listeningSocketDescr;
-	void (*handler_pointer)(char*, char*);
+	int (*handler_pointer)(char*, char*);
 	//Hemos visto que accept es thread-safe (nos fiamos 100% de stackoverflow)
 	//int acceptSemId;
 } threadPool;
 
-void* thread_behaviour(void* n){    
-    threadPool* datos = (threadPool*) n;
+void* thread_behaviour(void* args){    
+    threadPool* datos = (threadPool*) args;
     int socket;
     char inBuffer[BUFFER_SIZE];
     char outBuffer[BUFFER_SIZE];
 
-    void (*handler)(char*, char*) = datos->handler_pointer;
+    int (*handler)(char*, char*) = datos->handler_pointer;
     while(1){
 
         	socket = accept_connection(datos->listeningSocketDescr);
@@ -46,29 +46,42 @@ void* thread_behaviour(void* n){
 			my_receive(socket, inBuffer);
 			handler(inBuffer, outBuffer);
 			my_send(socket, outBuffer);
+			close(socket);
     }
     
     pthread_exit(NULL);
     
 }
 
-threadPool* pool_ini(int numProc, int n, int listeningSocketDescr, void(*handler_pointer)(char*, char*)){
+threadPool* pool_ini(int numThr, int listeningSocketDescr, int(*handler_pointer)(char*, char*)){
 	int i;
 	threadPool* pool;
+	sigset_t set;
 
 	pool = (threadPool*) malloc (sizeof (threadPool));
-	pool->numProc = numProc;
+	pool->numThr = numThr;
 	pool->listeningSocketDescr = listeningSocketDescr;
 	pool->handler_pointer = handler_pointer;
 
 	//inisemaforos (muy importante iniciar antes)
 	
-	pool->threadList = (pthread_t *)malloc(n*sizeof(pthread_t));
+	pool->threadList = (pthread_t *)malloc(numThr*sizeof(pthread_t));
 
-	for(i = 0; i < pool->numProc; i++){
+
+    sigemptyset(&set);
+    sigaddset(&set, SIGINT);
+    if (pthread_sigmask(SIG_BLOCK, &set, NULL) == 0)
+        syslog(LOG_ERR, "error mascara de bloqueo de SIGINT de threads");
+
+
+	for(i = 0; i < numThr; i++){
     	pthread_create(&pool->threadList[i], NULL, thread_behaviour, (void*) pool);
     }
 
+    sigemptyset(&set);
+    if (pthread_sigmask(SIG_BLOCK, &set, NULL) == 0)
+        syslog(LOG_ERR, "error mascara de bloqueo de SIGINT de hilo principal");
+	
 	return pool;
 }
 
@@ -76,7 +89,7 @@ threadPool* pool_ini(int numProc, int n, int listeningSocketDescr, void(*handler
 
 void pool_free(threadPool* pool){
 	int i;
-	for(i = 0; i < pool->numProc; i++){
+	for(i = 0; i < pool->numThr; i++){
 		pthread_cancel(pool->threadList[i]);
 	}
 	free(pool->threadList);

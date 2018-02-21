@@ -7,7 +7,7 @@
 # banderas de compilacion (PUEDE SER UTIL CAMBIARLAS)
 CC = gcc
 CFLAGS = -Wextra -std=gnu11 -Wall -g -I .
-LDLIBS = -lconfuse -lpthread -lm
+LDLIBS = -lconfuse -lpthread -lm 
 
 # fuentes a considerar (si no se cambia, todos los '.c' del directorio actual)
 SOURCES = $(shell ls -1 *.c* | xargs)
@@ -19,11 +19,13 @@ EXEC_SOURCES = $(shell grep -l "^int main" $(SOURCES) | xargs)
 EXECS = $(shell echo $(EXEC_SOURCES) | sed -e 's:\.c[p]*::g')
 DEPS = $(shell echo $(SOURCES) | sed -e 's:\.c[p]*:\.d:g')
 
-all:    client server 
+all:    client server concurrent_server
 
 client:	client.o socket_management.o daemon.o threadPool.o
 
-server: server.o socket_management.o
+server: server.o socket_management.o picohttpparser.o
+
+concurrent_server: concurrent_server.o socket_management.o http_processing.o threadPool.o picohttpparser.o
 
 
 # receta para hacer un .d (dependencias automaticas de tipo .h para tus .o)
