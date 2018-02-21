@@ -17,7 +17,6 @@
 #include <string.h>
 #include "socket_management.h"
 
-#define BUFFER_SIZE 1000
 
 
 //Estas son las estructuras con la que vamos a trabajar. Pertenece a <netinet/in.h>
@@ -68,11 +67,11 @@ int socket_connect(int clientsock, struct addrinfo* addr){
     return connect(clientsock, addr->ai_addr, addr->ai_addrlen);
 }
 
-int my_receive (int clientsock, char* inBuffer){
+int my_receive (int clientsock, char* inBuffer, long int buf_size){
     if(inBuffer == NULL)
         return -1;
     
-    return recv(clientsock, inBuffer, BUFFER_SIZE, 0);
+    return recv(clientsock, inBuffer, buf_size, 0);
 }
 
 int my_send (int clientsock, char* outBuffer){
