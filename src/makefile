@@ -23,7 +23,7 @@ all:    client server concurrent_server
 
 client:	client.o socket_management.o daemon.o threadPool.o
 
-server: server.o socket_management.o picohttpparser.o
+server: server.o socket_management.o picohttpparser.o http_processing.o
 
 concurrent_server: concurrent_server.o socket_management.o http_processing.o threadPool.o picohttpparser.o
 
