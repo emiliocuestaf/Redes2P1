@@ -17,10 +17,11 @@
 #include <unistd.h>
 #include <locale.h>
 #include <signal.h>
+#include <syslog.h>
 #include "confuse.h"
 #include "socket_management.h"
+#include "picohttpparser.h"
 
-#define BUFFER_SIZE 10000 //No se que poner
 
 int sock;
 cfg_t *cfg;
@@ -28,6 +29,7 @@ cfg_t *cfg;
 //Seniales parseo de server conf
 static char* server_root = NULL;
 static long int max_clients = 0;
+static long int buf_size = 0;
 static char* listen_port = NULL;
 static char* server_signature = NULL;
 
@@ -35,6 +37,8 @@ static char* server_signature = NULL;
 typedef struct _args{
     int dim;
 } args;
+
+/*Funcion que se encarga de manejar la señal SIGINT (Ctrl+C)*/
 
 void SIGINT_handler(){
 	cfg_free(cfg);
@@ -45,13 +49,65 @@ void SIGINT_handler(){
 	exit(-1);
 };
 
+/*Funcion que parsea una peticion HTTP*/
 
+int parse_petition(char* inBuffer, char* outBuffer){
+    char *method, *path;
+    int pret, minor_version;
+    struct phr_header headers[100];
+    size_t method_len, path_len, num_headers;
+    unsigned int i;
+    
+    num_headers = sizeof(headers) / sizeof(headers[0]);
+    
+    /*LLamamos a la funcion que se encarga de parsear la peticion*/
+    
+    pret = phr_parse_request(inBuffer, strlen(inBuffer), (const char**)&method, &method_len,(const char**) &path, &path_len, &minor_version, headers, &num_headers, 0);
+    
+    if ((pret == -1) || (strlen(inBuffer) == sizeof(inBuffer))){
+        printf("Error parseando HTTP.\n");
+        return -1;
+        }
+    
+
+    printf("request is %d bytes long\n", pret);
+    printf("method is %.*s\n", (int)method_len, method);
+    printf("path is %.*s\n", (int)path_len, path);
+    printf("HTTP version is 1.%d\n", minor_version);
+    printf("headers:\n");
+    for (i = 0; i != num_headers; ++i) {
+        printf("%.*s: %.*s\n", (int)headers[i].name_len, headers[i].name,
+               (int)headers[i].value_len, headers[i].value);
+    }
+    
+    return 0;
+    
+}
+
+/*Funcion que habra que cambiar ya que responde siempre lo mismo I think*/
+
+int response_petition(char* inBuffer, char* outBuffer){
+    int minor_version;
+    int status;
+    const char *msg;
+    size_t msg_len;
+    struct phr_header headers[4];
+    size_t num_headers;
+     
+    sprintf(outBuffer, "HTTP/1.0 200 OK\r\n\r\n");
+    
+    phr_parse_response(outBuffer, strlen(outBuffer), &minor_version, &status, &msg, &msg_len, headers, &num_headers, 0);
+    
+    return 0;
+}
 
 //De momento va a contestar a todo con un mensaje fijo y un numero generado por una variable global. (Esto habra que quitarlo luego) 
 int handle_petition(char* inBuffer, char* outBuffer){
 
-	//Ahora no hacemos nada con lo que nos mandan, en algun momento tendremos aqui un interprete de HTTP y esas cosas
-
+    parse_petition(inBuffer, outBuffer);
+    
+    response_petition(inBuffer, outBuffer);
+    
     sprintf(outBuffer, "%c", inBuffer[0]);
     sleep(1);
 
@@ -60,8 +116,8 @@ int handle_petition(char* inBuffer, char* outBuffer){
 
 int main(/*int argc, char **argv*/){
 
-    char inBuffer[BUFFER_SIZE];
-	char outBuffer[BUFFER_SIZE];
+    char inBuffer[buf_size];
+	char outBuffer[buf_size];
 	
 	int clientsock;
 	const char* hostName = "localhost"; 
@@ -80,6 +136,7 @@ int main(/*int argc, char **argv*/){
 		CFG_SIMPLE_INT("max_clients", &max_clients),
 		CFG_SIMPLE_STR("listen_port", &listen_port),
 		CFG_SIMPLE_STR("server_signature", &server_signature),
+		CFG_SIMPLE_INT("buf_size", &buf_size),
 		CFG_END()
 	};
 	
@@ -91,6 +148,7 @@ int main(/*int argc, char **argv*/){
     printf("max_clients: %ld\n", max_clients);
     printf("listen_port: %s\n", listen_port);
     printf("server_signature: %s\n", server_signature);
+    printf("buf_size: %ld\n", buf_size);
 	
 	//La estructura hints se pasa a getaddrinfo con una serie de parametros que queremos que cumpla la direccion que se devuelve en addr
 	struct addrinfo hints;
@@ -127,7 +185,7 @@ int main(/*int argc, char **argv*/){
 			perror("Error en accept_connection");
 		}
 		
-	    if(myReceive(clientsock, inBuffer) < 0){
+	    if(my_receive(clientsock, inBuffer) < 0){
             perror("Error en recv");
             return -1;
         }
@@ -138,7 +196,7 @@ int main(/*int argc, char **argv*/){
 	            break;
 	    }
 	    
-	    if(mySend(clientsock, outBuffer) < 0){
+	    if(my_send(clientsock, outBuffer) < 0){
             perror("Error en send");
             return -1;
         }   
