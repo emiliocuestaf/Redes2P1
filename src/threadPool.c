@@ -196,7 +196,7 @@ void pool_free(threadPool* pool){
 	    pthread_exit(NULL);
 	}
 
-	sleep(2);
+	sleep(1);
 
 	for(i = 0; i < pool->numThr; i++){
 		pthread_cancel(pool->threadList[i]);

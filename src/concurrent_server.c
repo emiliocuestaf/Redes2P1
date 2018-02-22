@@ -48,6 +48,7 @@ void SIGINT_handler(){
     free(listen_port);
     close(sock);
     pool_free(pool);
+    syslog(LOG_ERR, "Servidor cerrado: SIGINT");
 	exit(-1);
 };
 
@@ -95,27 +96,41 @@ int main(/*int argc, char **argv*/){
 
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM; 
-	// = SOCK_DGRAM si queremos UDP en lugar de TCP
-	//No obstante, hay algunas funciones mas abajo como accept() o listen() que creo que no fucnionan con udp
-    hints.ai_flags = AI_ALL; // not sure why
+    hints.ai_flags = AI_ALL; 
 	hints.ai_protocol = 0;
 	//El 0 elige el protocolo que mejor se adapta al resto de campos introducidos.
 
 	//Define una estructura que nos permite caracterizar el socket
 	if(getaddrinfo(NULL, listen_port, &hints, &addr)){
-		perror("Error en getaddrinfo");
+		cfg_free(cfg);
+        free(server_root);
+        free(server_signature);
+        free(listen_port);
+        syslog(LOG_ERR, "Error en Concurrent Server: Error en get_addr_info()");
 		return -1;
 	}
 
 	//Inicia el socket. Inluye socket(), bind() y listen()
     sock = server_socket_setup(addr, max_clients);
 	if(sock < 0){
-		perror("Error en server_setup");
+        cfg_free(cfg);
+        free(server_root);
+        free(server_signature);
+        free(listen_port);
+        freeaddrinfo(addr);
+        syslog(LOG_ERR, "Error en Concurrent Server: Error en server_socket_setup()");
+        return -1;
 	}
 
 	freeaddrinfo(addr);
 
     if((pool = pool_ini(max_clients, sock, buf_size, handle_petition)) == NULL){
+        cfg_free(cfg);
+        free(server_root);
+        free(server_signature);
+        free(listen_port);
+        freeaddrinfo(addr);
+        close(sock);
     	syslog(LOG_ERR, "Error en Concurrent Server: Error iniciando pool");
     	return -1;
     }
@@ -125,15 +140,27 @@ int main(/*int argc, char **argv*/){
     sigemptyset(&set);
     sigaddset(&set, SIGINT);
     if (pthread_sigmask(SIG_UNBLOCK, &set, NULL) != 0){
+        cfg_free(cfg);
+        free(server_root);
+        free(server_signature);
+        free(listen_port);
+        freeaddrinfo(addr);
+        close(sock);
+        pool_free(pool);
         syslog(LOG_ERR, "Error en Concurrent Server: Error mascara de bloqueo de thread principal");
- 		pool_free(pool);
         return -1;
     }
 
     //Senial de finalizacion
     if(signal (SIGINT, SIGINT_handler) == SIG_ERR){
-        syslog(LOG_ERR, "Error en Concurrent Server: Error definiendo SIGINT_handler");
+        cfg_free(cfg);
+        free(server_root);
+        free(server_signature);
+        free(listen_port);
+        freeaddrinfo(addr);
+        close(sock);
         pool_free(pool);
+        syslog(LOG_ERR, "Error en Concurrent Server: Error definiendo SIGINT_handler");
         return -1;
     }
 
