@@ -55,11 +55,11 @@ void SIGINT_handler(){
 //De momento va a contestar a todo con un mensaje fijo y un numero generado por una variable global. (Esto habra que quitarlo luego) 
 int handle_petition(char* inBuffer, char* outBuffer){
 
-    parse_petition(inBuffer, outBuffer);
+    parse_petition(inBuffer, outBuffer, server_signature);
     
     response_petition(inBuffer, outBuffer);
     
-    sprintf(outBuffer, "%c", inBuffer[0]);
+    sprintf(outBuffer, "%c\n", inBuffer[0]);
     sleep(1);
 
     return 0;
