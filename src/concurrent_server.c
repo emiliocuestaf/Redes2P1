@@ -46,8 +46,8 @@ void SIGINT_handler(){
     free(server_root);
     free(server_signature);
     free(listen_port);
+    close(sock);
     pool_free(pool);
-	close(sock);
 	exit(-1);
 };
 
@@ -115,16 +115,25 @@ int main(/*int argc, char **argv*/){
 
 	freeaddrinfo(addr);
 
-    pool = pool_ini(max_clients, sock, buf_size, handle_petition);
+    if((pool = pool_ini(max_clients, sock, buf_size, handle_petition)) == NULL){
+    	syslog(LOG_ERR, "Error en Concurrent Server: Error iniciando pool");
+    	return -1;
+    }
 
+
+    //Desbloquea sigint en el hilo principal
     sigemptyset(&set);
     sigaddset(&set, SIGINT);
-    if (pthread_sigmask(SIG_UNBLOCK, &set, NULL) == 0)
-        syslog(LOG_ERR, "error mascara de bloqueo de SIGINT de hilo principal");
+    if (pthread_sigmask(SIG_UNBLOCK, &set, NULL) != 0){
+        syslog(LOG_ERR, "Error en Concurrent Server: Error mascara de bloqueo de thread principal");
+ 		pool_free(pool);
+        return -1;
+    }
 
-      //Senial de finalizacion
-    if(signal (SIGINT, SIGINT_handler)==SIG_ERR){
-        perror("Error definiendo SIGINT_handler");
+    //Senial de finalizacion
+    if(signal (SIGINT, SIGINT_handler) == SIG_ERR){
+        syslog(LOG_ERR, "Error en Concurrent Server: Error definiendo SIGINT_handler");
+        pool_free(pool);
         return -1;
     }
 
