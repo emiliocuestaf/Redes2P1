@@ -77,7 +77,7 @@ int parse_petition(char* inBuffer, char* outBuffer, char* signature){
     }
 	printf("\n");
 	
-	if(strcmp(method, "GET") != 0 || strcmp(method, "POST") != 0 || strcmp(method, "OPTIONS") != 0){
+	if(strcmp(method, "GET") != 0 && strcmp(method, "POST") != 0 && strcmp(method, "OPTIONS") != 0){
 	    error_response(outBuffer, 501, minor_version);
 	
 	}
@@ -110,14 +110,13 @@ int response_petition(char* inBuffer, char* outBuffer){
     
     sprintf(outBuffer, "HTTP/1.0 200 OK\r\nContent-Type: text/html\r\nContent-Length: 88\r\n\r\n<html>\n<body>\n<h1>Happy New Millennium!</h1>\n</body>\n</html>\r\n");
     
-    phr_parse_response(outBuffer, strlen(outBuffer), &minor_version, &status, &msg, &msg_len, headers, &num_headers, 0);
+    /*phr_parse_response(outBuffer, strlen(outBuffer), &minor_version, &status, &msg, &msg_len, headers, &num_headers, 0);
 
 	for (i = 0; i != num_headers; ++i) {
         printf("%.*s: %.*s\n", (int)headers[i].name_len, headers[i].name,
                (int)headers[i].value_len, headers[i].value);
     }
-
-	printf("%s", msg);
+	printf("%s", msg);*/
     return 0;
 }
 
