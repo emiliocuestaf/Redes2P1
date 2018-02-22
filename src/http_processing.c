@@ -31,7 +31,7 @@ int error_response(char* outBuffer, int errnum, int minor_version){
         case 501:
         	sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>501 Method Not Implemented</title>\n</head><body>\n<h1>Method Not Implemented</h1>\n<p>Only GET,POST,OPTIONS<br />\n</p>\n</body></html>>");
         	
-        	sprintf(outBuffer, "HTTP/1.%d 405 Method Not Implemented\r\nDate: %s\r\nServer: %s\r\nAllow: GET,POST,OPTIONS\r\nContent-Length: %lu\r\nConnection: close\r\nContent-Type: text/html\r\n\r\n%s\r\n", minor_version, date, server_signature, sizeof(char)*strlen(htmlCode), htmlCode);
+        	sprintf(outBuffer, "HTTP/1.%d 501 Method Not Implemented\r\nDate: %s\r\nServer: %s\r\nAllow: GET,POST,OPTIONS\r\nContent-Length: %lu\r\nConnection: close\r\nContent-Type: text/html\r\n\r\n%s\r\n", minor_version, date, server_signature, sizeof(char)*strlen(htmlCode), htmlCode);
             break;
             
        	default:
@@ -59,7 +59,7 @@ int parse_petition(char* inBuffer, char* outBuffer, char* signature){
     /*LLamamos a la funcion que se encarga de parsear la peticion*/
     pret = phr_parse_request(inBuffer, (ssize_t) strlen(inBuffer), (const char**)&method, &method_len,(const char**) &path, &path_len, &minor_version, headers, &num_headers, (size_t) 0);
     
-    if ((pret == -1) /*|| (strlen(inBuffer) == sizeof(inBuffer))*/){
+    if ((pret == -1) || (strlen(inBuffer) == sizeof(inBuffer))){
         printf("Error parseando HTTP.\n");
         return -1;
         }
@@ -77,7 +77,7 @@ int parse_petition(char* inBuffer, char* outBuffer, char* signature){
     }
 	printf("\n");
 	
-	if(strcmp(method, "GET") != 0 && strcmp(method, "POST") != 0 && strcmp(method, "OPTIONS") != 0){
+	if((strcmp(method, "GET") != 0) && (strcmp(method, "POST") != 0) && (strcmp(method, "OPTIONS") != 0)){
 	    error_response(outBuffer, 501, minor_version);
 	
 	}
