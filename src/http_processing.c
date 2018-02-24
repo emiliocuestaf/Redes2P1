@@ -103,7 +103,7 @@ int response_get(char* outBuffer, int minor_version){
   char* body;
   char* date;
   char* modDate;
-  f = fopen("c3.jpg", "r");
+  f = fopen("c3.jpg", "rb");
   if(f == NULL){
     error_response(outBuffer, 404, minor_version);
     return 0;
@@ -111,12 +111,16 @@ int response_get(char* outBuffer, int minor_version){
 
   fseek (f, 0, SEEK_END);
   length = ftell (f);
-  fseek (f, 0, SEEK_SET);
-  body = malloc (length);
+  rewind(f);
+  body = malloc ((length+1) *sizeof(char));
 
-  if(body){
-    fread(body, 100, length, f);
+  if(body != NULL){
+    printf("ENTROOOO SUUU\n");
+    fread(body, sizeof(char), length, f);
+    body[length] = 0;
   }
+
+
 
   printf("\nAQUI VA MI BODY: %s\n", body);
 
@@ -128,6 +132,7 @@ int response_get(char* outBuffer, int minor_version){
   fclose(f);
   free (date);
   free (modDate);
+  free(body);
   return 0;
 }
 
