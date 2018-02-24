@@ -18,22 +18,24 @@ static char direc[100];
 /*Funcion que genera la fecha actual*/
 
 char* get_date(){
-  char *buf = malloc(sizeof(char)*50);
+  char *buf = malloc(sizeof(char)*35);
   time_t now = time(0);
   struct tm tm = *gmtime(&now);
   if(buf == NULL)
   	return NULL;
-  strftime(buf, sizeof buf, "%a, %d %b %Y %H:%M:%S %Z", &tm);
+  strftime(buf, 35, "%a, %d %b %Y %H:%M:%S %Z", &tm);
+  printf("DATE: %s", buf);
   return buf;
 }
 
 /*Funcion que devuelve la fecha de la ultima modificacion*/
 
 char* get_mod_time(char *path) {
-    char *buf = malloc(sizeof(char)*50);
-    struct stat attr;
-    stat(path, &attr);
-    sprintf(buf, "%s", ctime(&attr.st_mtime));
+    struct stat attrib;
+    stat(path, &attrib);
+    char* buf = malloc(sizeof(char)*35);
+    strftime(buf, 35, "%a, %d %b %y %H:%M:%S %Z", localtime(&(attrib.st_ctime)));
+    printf("\nThe file %s was last modified at %s\n", path, buf);
     return buf;
 }
 
@@ -101,23 +103,27 @@ int response_get(char* outBuffer, int minor_version){
   char* body;
   char* date;
   char* modDate;
-  f = fopen(direc, "r");
+  f = fopen("c3.jpg", "r");
   if(f == NULL){
     error_response(outBuffer, 404, minor_version);
     return 0;
   }
-  date = get_date();
-  modDate = get_mod_time(direc); 
+
   fseek (f, 0, SEEK_END);
   length = ftell (f);
   fseek (f, 0, SEEK_SET);
   body = malloc (length);
 
   if(body){
-    fread(body, 1, length, f);
+    fread(body, 100, length, f);
   }
 
-  sprintf(outBuffer, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: close\r\nContent-Type: %s\r\n\r\n%s\r\n", minor_version, date, server_signature, modDate, sizeof(char)*strlen(body), filename_ext(direc),body);
+  printf("\nAQUI VA MI BODY: %s\n", body);
+
+  date = get_date();
+  modDate = get_mod_time(direc); 
+
+  sprintf(outBuffer, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n%s\r\n", minor_version, date, server_signature, modDate, sizeof(char)*strlen(body), filename_ext(direc),body);
 
   fclose(f);
   free (date);
