@@ -51,9 +51,9 @@ void SIGINT_handler(){
 };
 
 //De momento va a contestar a todo con un mensaje fijo y un numero generado por una variable global. (Esto habra que quitarlo luego) 
-int handle_petition(char* inBuffer, char* outBuffer){
+int handle_petition(int clientsock, char* inBuffer, char* outBuffer){
 
-    parse_petition(inBuffer, outBuffer, server_signature, server_root);
+    parse_petition(clientsock, inBuffer, outBuffer, server_signature, server_root, buf_size);
     
     sleep(1);
 
@@ -88,13 +88,6 @@ int main(/*int argc, char **argv*/){
 
     cfg = cfg_init(opts, 0);
     cfg_parse(cfg, "server.conf");
-
-    printf("server_root: %s\n", server_root);
-    printf("max_clients: %ld\n", max_clients);
-    printf("listen_port: %s\n", listen_port);
-    printf("server_signature: %s\n", server_signature);
-    printf("buf_size: %ld\n", buf_size);
-	
 
     char inBuffer[buf_size];
     char outBuffer[buf_size];
@@ -137,15 +130,10 @@ int main(/*int argc, char **argv*/){
             return -1;
         }
 		//Solo el hijo procesa la peticion (con el sleep) para que el padre pueda seguir aceptando
-		if(handle_petition(inBuffer, outBuffer) < 0){
+		if(handle_petition(clientsock, inBuffer, outBuffer) < 0){
 			    close(clientsock);
 	            break;
 	    }
-	    
-	    if(my_send(clientsock, outBuffer) < 0){
-            perror("Error en send");
-            return -1;
-        }   
         
 	    close(clientsock);
     	//	exit(EXIT_SUCCESS);

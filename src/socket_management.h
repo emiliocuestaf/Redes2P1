@@ -22,7 +22,7 @@ int socket_bind(struct addrinfo* addr, int sockval);
 int socket_listen(int sockval, int max_client);
 int socket_connect(int clientsock, struct addrinfo* addr);
 int my_receive (int clientsock, char* inBuffer, long int buf_size);
-int my_send (int clientsock, char* outBuffer);
+int my_send (int clientsock, char* outBuffer, int length);
 
 
 #endif

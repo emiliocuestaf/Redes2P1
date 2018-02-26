@@ -7,13 +7,16 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include "http_processing.h"
 #include "picohttpparser.h"
-
-#define MAX_BODY 10000
+#include "socket_management.h"
 
 static char* server_signature = NULL;
 static char direc[100];
+int clientsock;
+int MAX_BUFFER;
 
 /*Funcion que genera la fecha actual*/
 
@@ -24,49 +27,15 @@ char* get_date(){
   if(buf == NULL)
   	return NULL;
   strftime(buf, 35, "%a, %d %b %Y %H:%M:%S %Z", &tm);
-  printf("DATE: %s", buf);
   return buf;
 }
 
 /*Funcion que devuelve la fecha de la ultima modificacion*/
 
-char* get_mod_time(char *path) {
-    struct stat attrib;
-    stat(path, &attrib);
+char* get_mod_time(struct stat* fStat) {
     char* buf = malloc(sizeof(char)*35);
-    strftime(buf, 35, "%a, %d %b %y %H:%M:%S %Z", localtime(&(attrib.st_ctime)));
-    printf("\nThe file %s was last modified at %s\n", path, buf);
+    strftime(buf, 35, "%a, %d %b %Y %H:%M:%S %Z", localtime(&(fStat->st_ctime)));
     return buf;
-}
-
-/*Funcion que da respuesta en caso de error*/
-
-int error_response(char* outBuffer, int errnum, int minor_version){
-	char htmlCode[10000];
-	char* date;
-	date = get_date();
-    switch (errnum){
-        
-        /*Caso Metodo No Implementado*/
-        case 501:
-        	sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>501 Method Not Implemented</title>\n</head><body>\n<h1>Method Not Implemented</h1>\n<p>Only GET,POST,OPTIONS<br />\n</p>\n</body></html>>");
-        	
-        	sprintf(outBuffer, "HTTP/1.%d 501 Method Not Implemented\r\nDate: %s\r\nServer: %s\r\nAllow: GET,POST,OPTIONS\r\nContent-Length: %lu\r\nConnection: close\r\nContent-Type: text/html\r\n\r\n%s\r\n", minor_version, date, server_signature, sizeof(char)*strlen(htmlCode), htmlCode);
-            break;
-
-        /*Caso archivo No Encontrado*/
-        case 404:
-          sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>404 Not Found</title>\n</head><body>\n<h1>Not Found</h1>\n<p>The requested URL %s was not found on this server</p>\n</body></html>>", direc);
-          
-          sprintf(outBuffer, "HTTP/1.%d 404 Not Found\r\nDate: %s\r\nServer: %s\r\nAllow: GET,POST,OPTIONS\r\nContent-Length: %lu\r\nConnection: close\r\nContent-Type: text/html\r\n\r\n%s\r\n", minor_version, date, server_signature, sizeof(char)*strlen(htmlCode), htmlCode);
-            break;
-            
-       	default:
-       		printf("Error no implementado.\n");
-    
-    }
-    free(date);
-    return 0;
 }
 
 /*Funcion que devuelve el Content-Type de un fichero*/
@@ -95,58 +64,18 @@ char *filename_ext(char *fname) {
     return "";
 }
 
-/*Funcion que responde a un get*/
-
-int response_get(char* outBuffer, int minor_version){
-  FILE* f = NULL;
-  long length;
-  char* body;
-  char* date;
-  char* modDate;
-  f = fopen("c3.jpg", "rb");
-  if(f == NULL){
-    error_response(outBuffer, 404, minor_version);
-    return 0;
-  }
-
-  fseek (f, 0, SEEK_END);
-  length = ftell (f);
-  rewind(f);
-  body = malloc ((length+1) *sizeof(char));
-
-  if(body != NULL){
-    printf("ENTROOOO SUUU\n");
-    fread(body, sizeof(char), length, f);
-    body[length] = 0;
-  }
-
-
-
-  printf("\nAQUI VA MI BODY: %s\n", body);
-
-  date = get_date();
-  modDate = get_mod_time(direc); 
-
-  sprintf(outBuffer, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n%s\r\n", minor_version, date, server_signature, modDate, sizeof(char)*strlen(body), filename_ext(direc),body);
-
-  fclose(f);
-  free (date);
-  free (modDate);
-  free(body);
-  return 0;
-}
 
 /*Funcion que parsea una peticion HTTP*/
 
-int parse_petition(char* inBuffer, char* outBuffer, char* signature, char* root){
+int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, char* root, long int buf_size){
     char *method, *path;
     int pret, minor_version;
     struct phr_header headers[100];
     size_t method_len, path_len, num_headers;
-    unsigned int i;
     
     server_signature = signature;
-
+    MAX_BUFFER = buf_size;
+    clientsock = csock;
     
     num_headers = sizeof(headers) / sizeof(headers[0]);
     
@@ -155,30 +84,18 @@ int parse_petition(char* inBuffer, char* outBuffer, char* signature, char* root)
     
     if ((pret == -1) || (strlen(inBuffer) == sizeof(inBuffer))){
         printf("Error parseando HTTP.\n");
-        return -1;
+        return ERROR;
         }
-    
-
-    printf("\n\nrequest is %d bytes long\n", pret);
-    printf("method is %.*s\n", (int)method_len, method);
-    printf("path is %.*s\n", (int)path_len, path);
-    printf("HTTP version is 1.%d\n", minor_version);
-    printf("headers:\n");
-    
-    for (i = 0; i != num_headers; ++i) {
-        printf("%.*s: %.*s\n", (int)headers[i].name_len, headers[i].name,
-               (int)headers[i].value_len, headers[i].value);
-    }
 
     /*Guardamos el método*/
     char aux[20];
     sprintf(aux, "%.*s", (int)method_len, method);
 
-    /*Guardamos la ruta del fichero*/
+    /*Guardamos la ruta del fichero concatenando con server_root*/
     sprintf(direc, "%s%.*s", root, (int)path_len, path);
 
 	if(strcmp(aux, "GET") == 0){
-	    response_get(outBuffer, minor_version);
+	    get_response(outBuffer, minor_version);
 	}
   else if(strcmp(aux, "POST") == 0){
     response_petition(inBuffer, outBuffer); // Respuesta genérica
@@ -191,16 +108,99 @@ int parse_petition(char* inBuffer, char* outBuffer, char* signature, char* root)
   else{
     error_response(outBuffer, 501, minor_version);
   }
-	
-	printf("%s", outBuffer);
-    
-    return 0;
+	 
+    return OK;
     
 }
-/*
-GET /path/file.html HTTP/1.0\r\nFrom: someuser@jmarshall.com\r\nUser-Agent: HTTPTool/1.0\r\n\r\n
 
-*/
+/*Funcion que responde a un get*/
+
+int get_response(char* outBuffer, int minor_version){
+  int f;
+  int length;
+  char* date;
+  char* modDate;
+  struct stat fStat;
+
+  f = open(direc, O_RDONLY);
+  if(f < 0){
+    error_response(outBuffer, 404, minor_version);
+    return OK;
+  }
+
+  if(fstat(f, &fStat) < 0)    
+    return ERROR;
+
+  /*Rellenamos campos necesarios para crear la respuesta*/
+
+  length = fStat.st_size;
+  date = get_date();
+  modDate = get_mod_time(&fStat); 
+
+  sprintf(outBuffer, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, length*sizeof(char), filename_ext(direc));
+
+  /*Enviamos cabeceras*/
+
+  if(my_send(clientsock, outBuffer, strlen(outBuffer)*sizeof(char)) < 0){
+    perror("Error enviando.\n");
+    return ERROR;
+  }
+
+  length = MAX_BUFFER;
+
+  /*Enviamos el fichero en trozos de tamaño MAX_BUFFER como maximo*/
+
+  while(length == MAX_BUFFER){
+    length = read(f, outBuffer, MAX_BUFFER);
+    if(length < 0){
+      perror("Error leyendo.\n");
+      return ERROR;
+    }
+    if(my_send(clientsock, outBuffer, length) < 0){
+      perror("Error enviando");
+      return ERROR;
+    }
+  }
+
+  close(f);
+  free (date);
+  free (modDate);
+  return OK;
+}
+
+/*Funcion que da respuesta en caso de error*/
+
+int error_response(char* outBuffer, int errnum, int minor_version){
+  char htmlCode[1000];
+  char* date;
+  date = get_date();
+    switch (errnum){
+        
+        /*Caso Metodo No Implementado*/
+        case 501:
+          sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>501 Method Not Implemented</title>\n</head><body>\n<h1>Method Not Implemented</h1>\n<p>Only GET,POST,OPTIONS<br />\n</p>\n</body></html>>");
+          
+          sprintf(outBuffer, "HTTP/1.%d 501 Method Not Implemented\r\nDate: %s\r\nServer: %s\r\nAllow: GET,POST,OPTIONS\r\nContent-Length: %lu\r\nConnection: close\r\nContent-Type: text/html\r\n\r\n%s\r\n", minor_version, date, server_signature, sizeof(char)*strlen(htmlCode), htmlCode);
+            break;
+
+        /*Caso archivo No Encontrado*/
+        case 404:
+          sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>404 Not Found</title>\n</head><body>\n<h1>Not Found</h1>\n<p>The requested URL %s was not found on this server</p>\n</body></html>>", direc);
+          
+          sprintf(outBuffer, "HTTP/1.%d 404 Not Found\r\nDate: %s\r\nServer: %s\r\nAllow: GET,POST,OPTIONS\r\nContent-Length: %lu\r\nConnection: close\r\nContent-Type: text/html\r\n\r\n%s\r\n", minor_version, date, server_signature, sizeof(char)*strlen(htmlCode), htmlCode);
+            break;
+            
+        default:
+          printf("Error no implementado.\n");
+    
+    }
+    if(my_send(clientsock, outBuffer, strlen(outBuffer)) < 0){
+      perror("Error enviando");
+      return ERROR;
+    }
+    free(date);
+    return OK;
+}
 
 /*Funcion que habra que cambiar ya que responde siempre lo mismo I think*/
 

@@ -112,7 +112,7 @@ void* thread_behaviour(void* args){
 			pthread_exit(NULL);
 		}
 		
-		if(my_send(socket, outBuffer) == -1){
+		if(my_send(socket, outBuffer, 10000) == -1){ /*CAMBIAR TERCER ARGUMENTO*/
 			syslog(LOG_ERR, "Error en thread: Error en my_send()");
 			pthread_exit(NULL);
 		}

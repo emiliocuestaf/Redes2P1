@@ -74,11 +74,11 @@ int my_receive (int clientsock, char* inBuffer, long int buf_size){
     return recv(clientsock, inBuffer, buf_size, 0);
 }
 
-int my_send (int clientsock, char* outBuffer){
+int my_send (int clientsock, char* outBuffer, int length){
     if(outBuffer == NULL)
         return -1;
 
-    return send(clientsock, outBuffer, strlen(outBuffer), 0);
+    return send(clientsock, outBuffer, length, 0);
 }
 
 
