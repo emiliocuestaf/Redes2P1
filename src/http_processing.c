@@ -58,6 +58,8 @@ char *filename_ext(char *fname) {
         return "application/msword";
       else if(strcmp(dot+1, "pdf") == 0)
         return "application/pdf";
+      else if(strcmp(dot+1, "py") == 0 || strcmp(dot+1, "php") == 0)
+        return "scripts"; //Habrá que cambiarlo
       else
         return "";
     } 
@@ -114,6 +116,13 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
       return ERROR;
     }
   }
+  return OK;
+}
+
+/*Funcion que responde a un options*/
+
+int options_response(){
+  // work in progress
   return OK;
 }
 
