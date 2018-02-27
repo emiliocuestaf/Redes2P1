@@ -34,7 +34,7 @@ char* get_date(){
 
 char* get_mod_time(struct stat* fStat) {
     char* buf = malloc(sizeof(char)*35);
-    strftime(buf, 35, "%a, %d %b %Y %H:%M:%S %Z", localtime(&(fStat->st_ctime)));
+    strftime(buf, 35, "%a, %d %b %Y %H:%M:%S %Z", gmtime(&(fStat->st_ctime)));
     return buf;
 }
 
@@ -83,7 +83,7 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
     pret = phr_parse_request(inBuffer, (ssize_t) strlen(inBuffer), (const char**)&method, &method_len,(const char**) &path, &path_len, &minor_version, headers, &num_headers, (size_t) 0);
     
     if ((pret == -1) || (strlen(inBuffer) == sizeof(inBuffer))){
-        printf("Error parseando HTTP.\n");
+        error_response(outBuffer, 400, minor_version);
         return ERROR;
         }
 
@@ -95,7 +95,10 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
     sprintf(direc, "%s%.*s", root, (int)path_len, path);
 
 	if(strcmp(aux, "GET") == 0){
-	  get_response(outBuffer, minor_version);
+	  if(get_response(outBuffer, minor_version) == ERROR){
+      perror("Error en HTTP Response GET.");
+      return ERROR;
+    }
 	}
   else if(strcmp(aux, "POST") == 0){
     response_petition(inBuffer, outBuffer); // Respuesta genérica
@@ -106,11 +109,12 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
 	}
 
   else{
-    error_response(outBuffer, 501, minor_version);
+    if(error_response(outBuffer, 501, minor_version) == ERROR){
+      perror("Error en HTTP Response ERROR");
+      return ERROR;
+    }
   }
-	 
-    return OK;
-    
+  return OK;
 }
 
 /*Funcion que responde a un get*/
@@ -118,8 +122,7 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
 int get_response(char* outBuffer, int minor_version){
   int f;
   int length;
-  char* date;
-  char* modDate;
+  char* date, *modDate, *ext;
   struct stat fStat;
 
   f = open(direc, O_RDONLY);
@@ -128,21 +131,35 @@ int get_response(char* outBuffer, int minor_version){
     return OK;
   }
 
-  if(fstat(f, &fStat) < 0)    
+  if(fstat(f, &fStat) < 0){ 
+    close(f);
     return ERROR;
+  }
 
   /*Rellenamos campos necesarios para crear la respuesta*/
 
   length = fStat.st_size;
   date = get_date();
   modDate = get_mod_time(&fStat); 
+  ext = filename_ext(direc);
 
-  sprintf(outBuffer, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, length*sizeof(char), filename_ext(direc));
+  if(strcmp(ext, "") == 0){
+    error_response(outBuffer, 404, minor_version);
+    close(f);
+    free (date);
+    free (modDate);
+    return OK;
+  }
+
+  sprintf(outBuffer, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, length*sizeof(char), ext);
 
   /*Enviamos cabeceras*/
 
   if(my_send(clientsock, outBuffer, strlen(outBuffer)*sizeof(char)) < 0){
     perror("Error enviando.\n");
+    close(f);
+    free (date);
+    free (modDate);
     return ERROR;
   }
 
@@ -154,11 +171,19 @@ int get_response(char* outBuffer, int minor_version){
     length = read(f, outBuffer, MAX_BUFFER);
     if(length < 0){
       perror("Error leyendo.\n");
+      close(f);
+      free (date);
+      free (modDate);
       return ERROR;
     }
-    if(my_send(clientsock, outBuffer, length) < 0){
-      perror("Error enviando");
-      return ERROR;
+    else if(length > 0){
+      if(my_send(clientsock, outBuffer, length) < 0){
+        perror("Error enviando");
+          close(f);
+          free (date);
+          free (modDate);
+        return ERROR;
+      }
     }
   }
 
@@ -178,23 +203,31 @@ int error_response(char* outBuffer, int errnum, int minor_version){
         
         /*Caso Metodo No Implementado*/
         case 501:
-          sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>501 Method Not Implemented</title>\n</head><body>\n<h1>Method Not Implemented</h1>\n<p>Only GET,POST,OPTIONS<br />\n</p>\n</body></html>>");
+          sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>501 Method Not Implemented</title>\n</head><body>\n<h1>Method Not Implemented</h1>\n<p>Only GET,POST,OPTIONS<br />\n</p>\n</body></html>");
           
           sprintf(outBuffer, "HTTP/1.%d 501 Method Not Implemented\r\nDate: %s\r\nServer: %s\r\nAllow: GET,POST,OPTIONS\r\nContent-Length: %lu\r\nConnection: close\r\nContent-Type: text/html\r\n\r\n%s\r\n", minor_version, date, server_signature, sizeof(char)*strlen(htmlCode), htmlCode);
-            break;
+          break;
 
         /*Caso archivo No Encontrado*/
         case 404:
-          sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>404 Not Found</title>\n</head><body>\n<h1>Not Found</h1>\n<p>The requested URL %s was not found on this server</p>\n</body></html>>", direc);
+          sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>404 Not Found</title>\n</head><body>\n<h1>Not Found</h1>\n<p>The requested URL %s was not found on this server</p>\n</body></html>", direc);
           
           sprintf(outBuffer, "HTTP/1.%d 404 Not Found\r\nDate: %s\r\nServer: %s\r\nAllow: GET,POST,OPTIONS\r\nContent-Length: %lu\r\nConnection: close\r\nContent-Type: text/html\r\n\r\n%s\r\n", minor_version, date, server_signature, sizeof(char)*strlen(htmlCode), htmlCode);
-            break;
+          break;
+
+        case 400:
+          sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>400 Bad Request</title>\n</head><body>\n<h1>Bad Request</h1>\n<p>The server could not understand the request due to invalid syntax.</p>\n</body></html>");
+          
+          sprintf(outBuffer, "HTTP/1.%d 400 Bad Request\r\nDate: %s\r\nServer: %s\r\nAllow: GET,POST,OPTIONS\r\nContent-Length: %lu\r\nConnection: close\r\nContent-Type: text/html\r\n\r\n%s\r\n", minor_version, date, server_signature, sizeof(char)*strlen(htmlCode), htmlCode);
+          break;
+
             
         default:
           printf("Error no implementado.\n");
     
     }
     if(my_send(clientsock, outBuffer, strlen(outBuffer)) < 0){
+      free(date);
       perror("Error enviando");
       return ERROR;
     }
