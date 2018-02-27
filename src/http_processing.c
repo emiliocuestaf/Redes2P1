@@ -95,7 +95,7 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
     sprintf(direc, "%s%.*s", root, (int)path_len, path);
 
 	if(strcmp(aux, "GET") == 0){
-	    get_response(outBuffer, minor_version);
+	  get_response(outBuffer, minor_version);
 	}
   else if(strcmp(aux, "POST") == 0){
     response_petition(inBuffer, outBuffer); // Respuesta genérica

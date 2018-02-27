@@ -25,20 +25,14 @@ typedef struct _threadPool{
 	
 	//Este mutex regula el acceso de los hilos a memoria compartida, que es justo esta estructura.
 	pthread_mutex_t sharedMutex;
-
 	//Hemos visto que accept es thread-safe, por eso no se incluye un semaforo/mutex para su acceso
-
 	int numThr;
 	pthread_t* threadList;
-	
 	int listeningSocketDescr;
-
 	//Puntero a funcion handler	
-	int (*handler_pointer)(char*, char*);
-
+	int (*handler_pointer)(int, char*, char*);
 	//Tamaño del buffer de peticiones de entrada/salida
 	long int buffSize;
-
 	//Flag para una finalizacion mas o menos correcta de los hilos.
 	int stopThreads;
 	
@@ -50,7 +44,7 @@ void* thread_behaviour(void* args){
 	//Casting de la estructura de memoria compartida
     threadPool* datos = (threadPool*) args;
     int socket, listeningSocket, buffSize;
-    int (*handler)(char*, char*);
+    int (*handler)(int, char*, char*);
  
     
 
@@ -107,15 +101,11 @@ void* thread_behaviour(void* args){
 			pthread_exit(NULL);
 		}
 		
-		if(handler(inBuffer, outBuffer) == -1){
-			syslog(LOG_ERR, "Error en thread: Error en my_handler()");
+		if(handler(socket, inBuffer, outBuffer) == -1){
+			syslog(LOG_ERR, "Error en thread: Error en handler()");
 			pthread_exit(NULL);
 		}
 		
-		if(my_send(socket, outBuffer, 10000) == -1){ /*CAMBIAR TERCER ARGUMENTO*/
-			syslog(LOG_ERR, "Error en thread: Error en my_send()");
-			pthread_exit(NULL);
-		}
 		close(socket);
 
 		bzero(inBuffer, strlen(inBuffer));
@@ -125,7 +115,7 @@ void* thread_behaviour(void* args){
     
 }
 
-threadPool* pool_ini(int numThr, int listeningSocketDescr, int buffSize, int(*handler_pointer)(char*, char*)){
+threadPool* pool_ini(int numThr, int listeningSocketDescr, int buffSize, int(*handler_pointer)(int, char*, char*)){
 	int i;
 	threadPool* pool;
 	sigset_t set;
