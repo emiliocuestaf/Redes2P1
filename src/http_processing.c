@@ -193,6 +193,13 @@ int get_response(char* outBuffer, int minor_version){
   return OK;
 }
 
+/*Funcion que responde a un post*/
+/*En nuestro caso solo sirve para ejecutar scripts*/
+
+int post_response(char* outBuffer, int minor_version){
+  
+}
+
 /*Funcion que da respuesta en caso de error*/
 
 int error_response(char* outBuffer, int errnum, int minor_version){
