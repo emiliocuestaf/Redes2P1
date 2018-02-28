@@ -178,12 +178,7 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
     return OK;
 }
 
-/*Funcion que responde a un options*/
 
-int options_response(){
-  // work in progress
-  return OK;
-}
 
 /*Funcion que responde a un get*/
 
@@ -266,7 +261,7 @@ int get_response(char* outBuffer, int minor_version){
 /*En nuestro caso solo sirve para ejecutar scripts*/
 
 int post_response(char* outBuffer, int minor_version){
-  
+  return OK;
 }
 
 
