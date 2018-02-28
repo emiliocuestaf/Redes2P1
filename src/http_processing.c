@@ -13,6 +13,7 @@
 #include "picohttpparser.h"
 #include "socket_management.h"
 
+
 static char* server_signature = NULL;
 static char direc[100];
 int clientsock;
@@ -65,6 +66,54 @@ char *filename_ext(char *fname) {
 }
 
 
+/*Funcion que devuelve los metodos validos en cada carpeta. 
+  Retorno: Devuelve los datos que nos interesan dentro la estructura*/
+int allowed_methods(allowedMethods* met, char* path, int path_len){
+  if( (met == NULL) || (path == NULL))
+    return ERROR;
+
+  char delim = '/';
+  char* aux;
+  char * token;
+
+  aux = (char *) malloc (path_len * sizeof(char));
+  sprintf(aux, "%.*s",  path_len, path);
+
+  token=strtok(aux, &delim);
+  token=strtok(NULL, &delim);
+  if(strcmp(aux, "docs")){
+    met->nummethods = 2;
+    strcpy(met->methods[0],"GET");
+    strcpy(met->methods[1], "OPTIONS");
+    strcpy(met->txtChain, "GET,OPTIONS");
+  }
+  else if(strcmp(aux, "images")){
+    met->nummethods = 2;
+    strcpy(met->methods[0],"GET");
+    strcpy(met->methods[1], "OPTIONS");
+    strcpy(met->txtChain, "GET,OPTIONS");
+  }
+  else if(strcmp(aux, "scripts")){
+    met->nummethods = 3;
+    strcpy(met->methods[0],"GET");
+    strcpy(met->methods[1], "OPTIONS");
+    strcpy(met->methods[2], "POST");
+    strcpy(met->txtChain, "GET,OPTIONS,POST");
+  }
+  else if(strcmp(aux, "videos")){
+    met->nummethods = 2;
+    strcpy(met->methods[0],"GET");
+    strcpy(met->methods[1], "OPTIONS");
+    strcpy(met->txtChain, "GET,OPTIONS");
+  }
+  else{
+    met->nummethods = 0;
+    return ERROR;
+  }
+
+  return OK;
+}
+
 /*Funcion que parsea una peticion HTTP*/
 
 int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, char* root, long int buf_size){
@@ -72,6 +121,7 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
     int pret, minor_version;
     struct phr_header headers[100];
     size_t method_len, path_len, num_headers;
+    allowedMethods am;
     
     server_signature = signature;
     MAX_BUFFER = buf_size;
@@ -87,6 +137,11 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
         return ERROR;
         }
 
+   if(allowed_methods(&am, path, path_len) == ERROR){
+        //error_response(outBuffer, 400, minor_version);
+        //return ERROR;
+    }
+
     /*Guardamos el método*/
     char aux[20];
     sprintf(aux, "%.*s", (int)method_len, method);
@@ -94,27 +149,31 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
     /*Guardamos la ruta del fichero concatenando con server_root*/
     sprintf(direc, "%s%.*s", root, (int)path_len, path);
 
-	if(strcmp(aux, "GET") == 0){
-	  if(get_response(outBuffer, minor_version) == ERROR){
-      perror("Error en HTTP Response GET.");
-      return ERROR;
-    }
-	}
-  else if(strcmp(aux, "POST") == 0){
-    response_petition(inBuffer, outBuffer); // Respuesta genérica
-  }
-	
-	else if (strcmp(aux, "OPTIONS") == 0){
-		response_petition(inBuffer, outBuffer); // Respuesta genérica
-	}
 
-  else{
-    if(error_response(outBuffer, 501, minor_version) == ERROR){
-      perror("Error en HTTP Response ERROR");
-      return ERROR;
+  	if(strcmp(aux, "GET") == 0){
+  	  if(get_response(outBuffer, minor_version) == ERROR){
+        perror("Error en HTTP Response GET.");
+        return ERROR;
+      }
+  	}
+    else if(strcmp(aux, "POST") == 0){
+      response_petition(inBuffer, outBuffer); // Respuesta genérica
     }
-  }
-  return OK;
+  	
+  	else if (strcmp(aux, "OPTIONS") == 0){
+      if(options_response(outBuffer, minor_version, &am) == ERROR){
+        perror("Error en HTTP Response GET.");
+        return ERROR;
+      }  	
+    }
+
+    else{
+      if(error_response(outBuffer, 501, minor_version) == ERROR){
+        perror("Error en HTTP Response ERROR");
+        return ERROR;
+      }
+    }
+    return OK;
 }
 
 /*Funcion que responde a un get*/
@@ -193,6 +252,7 @@ int get_response(char* outBuffer, int minor_version){
   return OK;
 }
 
+
 /*Funcion que responde a un post*/
 /*En nuestro caso solo sirve para ejecutar scripts*/
 
@@ -200,6 +260,15 @@ int post_response(char* outBuffer, int minor_version){
   
 }
 
+
+int options_response(char* outBuffer, int minor_version, allowedMethods* am){
+  sprintf(outBuffer, "HTTP/1.%d 200 OK\r\nApply: %s\r\n\r\n", minor_version, am->txtChain);
+  if(my_send(clientsock, outBuffer, strlen(outBuffer)*sizeof(char)) < 0){
+    perror("Error enviando.\n");
+    return ERROR;
+  }
+  return OK;
+}
 /*Funcion que da respuesta en caso de error*/
 
 int error_response(char* outBuffer, int errnum, int minor_version){

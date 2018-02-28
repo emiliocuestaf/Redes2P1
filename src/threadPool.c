@@ -103,7 +103,8 @@ void* thread_behaviour(void* args){
 		
 		if(handler(socket, inBuffer, outBuffer) == -1){
 			syslog(LOG_ERR, "Error en thread: Error en handler()");
-			pthread_exit(NULL);
+			//pthread_exit(NULL);
+			//No se cancela el hilo si no puede procesar bien una peticion
 		}
 		
 		close(socket);
