@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <syslog.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include "http_processing.h"
@@ -72,13 +73,14 @@ int allowed_methods(allowedMethods* met, char* path, int path_len){
 
   char delim = '/';
   char* aux;
-  char * token;
+  char * token1;
+  char * token2;
 
 
   aux = (char *) malloc (path_len * sizeof(char));
   sprintf(aux, "%.*s",  path_len, path);
 
-  if(strcmp(aux, "/*") == 0){
+  if((strcmp(aux, "/*") == 0) || (strcmp(aux, "*") == 0)){
     met->nummethods = 3;
     strcpy(met->methods[0],"GET");
     strcpy(met->methods[1], "OPTIONS");
@@ -91,44 +93,58 @@ int allowed_methods(allowedMethods* met, char* path, int path_len){
   //TODO: RESOLVER CUANDO STRTOK DA NULL, NO DEVOLVEMOS NADA, ESTO DEBERIA DAR EL CASO DEFAULT, NO SEGFAULT
   FILE* f;
   f = fopen("debbuging.txt", "w");
-  token=strtok(aux, &delim);
-  token=strtok(NULL, &delim);
+  token1=strtok(aux, &delim);
+  token2=strtok(NULL, &delim);
   fprintf(f, "%s\n", path);
   fprintf(f, "%s\n", aux);
-  fprintf(f, "%s\n",token);
+  fprintf(f, "%s\n",token1);
+  fprintf(f, "%s\n",token2);
   fclose(f);
 
-  if(strcmp(token, "docs") == 0){
+  if((strcmp(token1, "files") == 0) && (strcmp(token2, "docs") == 0)){
     met->nummethods = 2;
     strcpy(met->methods[0],"GET");
     strcpy(met->methods[1], "OPTIONS");
     strcpy(met->txtChain, "GET,OPTIONS");
+    free(aux);
+    return OK;
   }
-  else if(strcmp(token, "images") == 0){
+  else if((strcmp(token1, "files") == 0) && (strcmp(token2, "images") == 0)){
     met->nummethods = 2;
     strcpy(met->methods[0],"GET");
     strcpy(met->methods[1], "OPTIONS");
     strcpy(met->txtChain, "GET,OPTIONS");
+    free(aux);
+    return OK;
   }
-  else if(strcmp(token, "scripts") == 0){
+  else if((strcmp(token1, "files") == 0) && (strcmp(token2, "scripts") == 0)){
     met->nummethods = 3;
     strcpy(met->methods[0],"GET");
     strcpy(met->methods[1], "OPTIONS");
     strcpy(met->methods[2], "POST");
     strcpy(met->txtChain, "GET,OPTIONS,POST");
+    free(aux);
+    return OK;
   }
-  else if(strcmp(token, "videos") == 0){
+  else if((strcmp(token1, "files") == 0) && (strcmp(token2, "videos") == 0)){
     met->nummethods = 2;
     strcpy(met->methods[0],"GET");
     strcpy(met->methods[1], "OPTIONS");
     strcpy(met->txtChain, "GET,OPTIONS");
+    free(aux);
+    return OK;
   }
   else{
-    met->nummethods = 0;
-    return ERROR;
+    met->nummethods = 1;
+    strcpy(met->methods[0], "OPTIONS");
+    strcpy(met->txtChain, "OPTIONS");
+    free(aux);
+    return OK;
   }
+
   free(aux);
-  return OK;
+  syslog(LOG_ERR, "Error en HTTP_PROCESSING: Error en allowed methods");
+  return ERROR;
 }
 
 /*Funcion que parsea una peticion HTTP*/
