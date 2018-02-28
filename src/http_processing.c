@@ -94,6 +94,10 @@ int allowed_methods(allowedMethods* met, char* path, int path_len){
   FILE* f;
   f = fopen("debbuging.txt", "w");
   token1=strtok(aux, &delim);
+  if(token1 == NULL){
+    free(aux);
+    return ERROR;
+  }
   token2=strtok(NULL, &delim);
   fprintf(f, "%s\n", path);
   fprintf(f, "%s\n", aux);
@@ -131,6 +135,15 @@ int allowed_methods(allowedMethods* met, char* path, int path_len){
     strcpy(met->methods[0],"GET");
     strcpy(met->methods[1], "OPTIONS");
     strcpy(met->txtChain, "GET,OPTIONS");
+    free(aux);
+    return OK;
+  }
+  else if((strcmp(token1, "files") == 0)){
+    met->nummethods = 3;
+    strcpy(met->methods[0],"GET");
+    strcpy(met->methods[1], "OPTIONS");
+    strcpy(met->methods[2], "POST");
+    strcpy(met->txtChain, "GET,OPTIONS,POST");
     free(aux);
     return OK;
   }
