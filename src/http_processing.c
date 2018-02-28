@@ -13,11 +13,7 @@
 #include "picohttpparser.h"
 #include "socket_management.h"
 
-
-static char* server_signature = NULL;
-static char direc[100];
-int clientsock;
-int MAX_BUFFER;
+#define DIREC_SIZE 100
 
 /*Funcion que genera la fecha actual*/
 
@@ -78,31 +74,50 @@ int allowed_methods(allowedMethods* met, char* path, int path_len){
   char* aux;
   char * token;
 
+
   aux = (char *) malloc (path_len * sizeof(char));
   sprintf(aux, "%.*s",  path_len, path);
 
+  if(strcmp(aux, "/*") == 0){
+    met->nummethods = 3;
+    strcpy(met->methods[0],"GET");
+    strcpy(met->methods[1], "OPTIONS");
+    strcpy(met->methods[2], "POST");
+    strcpy(met->txtChain, "GET,OPTIONS,POST");
+    free(aux);
+    return OK;
+  }
+
+  //TODO: RESOLVER CUANDO STRTOK DA NULL, NO DEVOLVEMOS NADA, ESTO DEBERIA DAR EL CASO DEFAULT, NO SEGFAULT
+  FILE* f;
+  f = fopen("debbuging.txt", "w");
   token=strtok(aux, &delim);
   token=strtok(NULL, &delim);
-  if(strcmp(aux, "docs")){
+  fprintf(f, "%s\n", path);
+  fprintf(f, "%s\n", aux);
+  fprintf(f, "%s\n",token);
+  fclose(f);
+
+  if(strcmp(token, "docs") == 0){
     met->nummethods = 2;
     strcpy(met->methods[0],"GET");
     strcpy(met->methods[1], "OPTIONS");
     strcpy(met->txtChain, "GET,OPTIONS");
   }
-  else if(strcmp(aux, "images")){
+  else if(strcmp(token, "images") == 0){
     met->nummethods = 2;
     strcpy(met->methods[0],"GET");
     strcpy(met->methods[1], "OPTIONS");
     strcpy(met->txtChain, "GET,OPTIONS");
   }
-  else if(strcmp(aux, "scripts")){
+  else if(strcmp(token, "scripts") == 0){
     met->nummethods = 3;
     strcpy(met->methods[0],"GET");
     strcpy(met->methods[1], "OPTIONS");
     strcpy(met->methods[2], "POST");
     strcpy(met->txtChain, "GET,OPTIONS,POST");
   }
-  else if(strcmp(aux, "videos")){
+  else if(strcmp(token, "videos") == 0){
     met->nummethods = 2;
     strcpy(met->methods[0],"GET");
     strcpy(met->methods[1], "OPTIONS");
@@ -112,13 +127,19 @@ int allowed_methods(allowedMethods* met, char* path, int path_len){
     met->nummethods = 0;
     return ERROR;
   }
-
+  free(aux);
   return OK;
 }
 
 /*Funcion que parsea una peticion HTTP*/
 
 int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, char* root, long int buf_size){
+    char* server_signature = NULL;
+    char direc[DIREC_SIZE];
+    char* cleanpath;
+    int clientsock;
+    int max_buffer;
+    int i;
     char *method, *path;
     int pret, minor_version;
     struct phr_header headers[100];
@@ -126,7 +147,7 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
     allowedMethods am;
     
     server_signature = signature;
-    MAX_BUFFER = buf_size;
+    max_buffer = buf_size;
     clientsock = csock;
     
     num_headers = sizeof(headers) / sizeof(headers[0]);
@@ -135,46 +156,73 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
     pret = phr_parse_request(inBuffer, (ssize_t) strlen(inBuffer), (const char**)&method, &method_len,(const char**) &path, &path_len, &minor_version, headers, &num_headers, (size_t) 0);
     
     if ((pret == -1) || (strlen(inBuffer) == sizeof(inBuffer))){
-        error_response(outBuffer, 400, minor_version);
-        return ERROR;
+        if(error_response(server_signature, clientsock, path, outBuffer, 400, minor_version) == ERROR)
+          return ERROR;
+        return OK;
         }
 
-   if(allowed_methods(&am, path, path_len) == ERROR){
-        //error_response(outBuffer, 400, minor_version);
-        //return ERROR;
+    if(allowed_methods(&am, path, path_len) == ERROR){
+        FILE* f;
+        f = fopen("stilldebugging.txt", "w");
+        fprintf(f, "es aqui donde el allowed\n" );
+        fclose(f);
+        if(error_response(server_signature, clientsock, path, outBuffer, 400, minor_version) == ERROR)
+          return ERROR;
+        return OK;
     }
 
     /*Guardamos el método*/
     char aux[20];
     sprintf(aux, "%.*s", (int)method_len, method);
 
+
     /*Guardamos la ruta del fichero concatenando con server_root*/
-    sprintf(direc, "%s%.*s", root, (int)path_len, path);
+    cleanpath = (char*) malloc (path_len* sizeof(char));
+    sprintf(cleanpath, "%.*s", (int)path_len, path);
+    sprintf(direc, "%s%s", root, cleanpath);
 
 
   	if(strcmp(aux, "GET") == 0){
-  	  if(get_response(outBuffer, minor_version) == ERROR){
-        perror("Error en HTTP Response GET.");
-        return ERROR;
+      for(i=0; i < am.nummethods; i++){
+        if(strcmp(am.methods[i], "GET") == 0){
+          if(get_response(server_signature, clientsock, direc, cleanpath, max_buffer, outBuffer, minor_version) == ERROR){
+            perror("Error en HTTP Response GET.");
+            free(cleanpath);
+            return ERROR;
+          }
+          free(cleanpath);
+          return OK;
+        }
       }
+      if(error_response(server_signature, clientsock, cleanpath, outBuffer, 405, minor_version) == ERROR){
+          free(cleanpath);
+          return ERROR;
+        }
+      free(cleanpath);
+      return OK;
   	}
+
     else if(strcmp(aux, "POST") == 0){
       response_petition(inBuffer, outBuffer); // Respuesta genérica
     }
   	
   	else if (strcmp(aux, "OPTIONS") == 0){
-      if(options_response(outBuffer, minor_version, &am) == ERROR){
+      if(options_response(server_signature, clientsock,outBuffer, minor_version, &am) == ERROR){
         perror("Error en HTTP Response GET.");
+        free(cleanpath);
         return ERROR;
       }  	
     }
 
     else{
-      if(error_response(outBuffer, 501, minor_version) == ERROR){
+      if(error_response(server_signature, clientsock, cleanpath, outBuffer, 501, minor_version) == ERROR){
         perror("Error en HTTP Response ERROR");
+        free(cleanpath);
         return ERROR;
       }
     }
+
+    free(cleanpath);
     return OK;
 }
 
@@ -182,7 +230,7 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
 
 /*Funcion que responde a un get*/
 
-int get_response(char* outBuffer, int minor_version){
+int get_response(char* server_signature, int clientsock, char* direc, char* cleanpath, int max_buffer, char* outBuffer, int minor_version){
   int f;
   int length;
   char* date, *modDate, *ext;
@@ -190,7 +238,7 @@ int get_response(char* outBuffer, int minor_version){
 
   f = open(direc, O_RDONLY);
   if(f < 0){
-    error_response(outBuffer, 404, minor_version);
+    error_response(server_signature, clientsock, cleanpath, outBuffer, 404, minor_version);
     return OK;
   }
 
@@ -207,7 +255,7 @@ int get_response(char* outBuffer, int minor_version){
   ext = filename_ext(direc);
 
   if(strcmp(ext, "") == 0){
-    error_response(outBuffer, 404, minor_version);
+    error_response(server_signature, clientsock, cleanpath, outBuffer, 404, minor_version);
     close(f);
     free (date);
     free (modDate);
@@ -226,12 +274,12 @@ int get_response(char* outBuffer, int minor_version){
     return ERROR;
   }
 
-  length = MAX_BUFFER;
+  length = max_buffer;
 
   /*Enviamos el fichero en trozos de tamaño MAX_BUFFER como maximo*/
 
-  while(length == MAX_BUFFER){
-    length = read(f, outBuffer, MAX_BUFFER);
+  while(length == max_buffer){
+    length = read(f, outBuffer, max_buffer);
     if(length < 0){
       perror("Error leyendo.\n");
       close(f);
@@ -260,22 +308,27 @@ int get_response(char* outBuffer, int minor_version){
 /*Funcion que responde a un post*/
 /*En nuestro caso solo sirve para ejecutar scripts*/
 
-int post_response(char* outBuffer, int minor_version){
+int post_response(char* server_signature, int clientsock, char* direc, char* outBuffer, int minor_version){
   return OK;
 }
 
 
-int options_response(char* outBuffer, int minor_version, allowedMethods* am){
-  sprintf(outBuffer, "HTTP/1.%d 200 OK\r\nApply: %s\r\n\r\n", minor_version, am->txtChain);
+int options_response(char* server_signature, int clientsock, char* outBuffer, int minor_version, allowedMethods* am){
+  char* date;
+
+  date = get_date();
+  sprintf(outBuffer, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nAllow: %s\r\nContent-Length: 0\r\nConnection: close\r\nContent-Type: text/plain\r\n\r\n", minor_version, date, server_signature, am->txtChain);
   if(my_send(clientsock, outBuffer, strlen(outBuffer)*sizeof(char)) < 0){
     perror("Error enviando.\n");
+    free(date);
     return ERROR;
   }
+  free(date);
   return OK;
 }
 /*Funcion que da respuesta en caso de error*/
 
-int error_response(char* outBuffer, int errnum, int minor_version){
+int error_response(char* server_signature, int clientsock, char* cleanpath, char* outBuffer, int errnum, int minor_version){
   char htmlCode[1000];
   char* date;
   date = get_date();
@@ -290,7 +343,7 @@ int error_response(char* outBuffer, int errnum, int minor_version){
 
         /*Caso archivo No Encontrado*/
         case 404:
-          sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>404 Not Found</title>\n</head><body>\n<h1>Not Found</h1>\n<p>The requested URL %s was not found on this server</p>\n</body></html>", direc);
+          sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>404 Not Found</title>\n</head><body>\n<h1>Not Found</h1>\n<p>The requested URL %s was not found on this server</p>\n</body></html>", cleanpath);
           
           sprintf(outBuffer, "HTTP/1.%d 404 Not Found\r\nDate: %s\r\nServer: %s\r\nAllow: GET,POST,OPTIONS\r\nContent-Length: %lu\r\nConnection: close\r\nContent-Type: text/html\r\n\r\n%s\r\n", minor_version, date, server_signature, sizeof(char)*strlen(htmlCode), htmlCode);
           break;
@@ -301,7 +354,12 @@ int error_response(char* outBuffer, int errnum, int minor_version){
           sprintf(outBuffer, "HTTP/1.%d 400 Bad Request\r\nDate: %s\r\nServer: %s\r\nAllow: GET,POST,OPTIONS\r\nContent-Length: %lu\r\nConnection: close\r\nContent-Type: text/html\r\n\r\n%s\r\n", minor_version, date, server_signature, sizeof(char)*strlen(htmlCode), htmlCode);
           break;
 
-            
+        case 405:
+          sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>405 Not allowed</title>\n</head><body>\n<h1>Not allowed</h1>\n<p>The method you are trying to use is not allowed in here.</p>\n</body></html>");
+          
+          sprintf(outBuffer, "HTTP/1.%d 405 Not Allowed\r\nDate: %s\r\nServer: %s\r\nAllow: GET,POST,OPTIONS\r\nContent-Length: %lu\r\nConnection: close\r\nContent-Type: text/html\r\n\r\n%s\r\n", minor_version, date, server_signature, sizeof(char)*strlen(htmlCode), htmlCode);
+          break;
+
         default:
           printf("Error no implementado.\n");
     

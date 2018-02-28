@@ -68,7 +68,6 @@ int handle_petition(int socket, char* inBuffer, char* outBuffer){
 int main(/*int argc, char **argv*/){
 
 	sigset_t set;
-	const char* hostName = "localhost"; 
 	struct addrinfo* addr;
 
     //Parseo de server.conf
