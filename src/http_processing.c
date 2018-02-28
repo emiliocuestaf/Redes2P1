@@ -77,7 +77,7 @@ int allowed_methods(allowedMethods* met, char* path, int path_len){
   char * token2;
 
 
-  aux = (char *) malloc (path_len * sizeof(char));
+  aux = (char *) malloc ((path_len +1)* sizeof(char));
   sprintf(aux, "%.*s",  path_len, path);
 
   if((strcmp(aux, "/*") == 0) || (strcmp(aux, "*") == 0)){
@@ -206,7 +206,7 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
 
 
     /*Guardamos la ruta del fichero concatenando con server_root*/
-    cleanpath = (char*) malloc (path_len* sizeof(char));
+    cleanpath = (char*) malloc ((path_len+1)* sizeof(char));
     sprintf(cleanpath, "%.*s", (int)path_len, path);
     sprintf(direc, "%s%s", root, cleanpath);
 
