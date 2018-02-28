@@ -57,7 +57,7 @@ char *filename_ext(char *fname) {
       else if(strcmp(dot+1, "pdf") == 0)
         return "application/pdf";
       else if(strcmp(dot+1, "py") == 0 || strcmp(dot+1, "php") == 0)
-        return "scripts"; //Habrá que cambiarlo
+        return "text/html"; //Habrá que cambiarlo
       else
         return "";
     } 
@@ -131,6 +131,14 @@ int allowed_methods(allowedMethods* met, char* path, int path_len){
     return OK;
   }
   else if((strcmp(token1, "files") == 0) && (strcmp(token2, "videos") == 0)){
+    met->nummethods = 2;
+    strcpy(met->methods[0],"GET");
+    strcpy(met->methods[1], "OPTIONS");
+    strcpy(met->txtChain, "GET,OPTIONS");
+    free(aux);
+    return OK;
+  }
+  else if((strcmp(token1, "files") == 0) && (strcmp(token2, "html") == 0)){
     met->nummethods = 2;
     strcpy(met->methods[0],"GET");
     strcpy(met->methods[1], "OPTIONS");
@@ -372,8 +380,8 @@ int error_response(char* server_signature, int clientsock, char* cleanpath, char
 
         /*Caso archivo No Encontrado*/
         case 404:
-          sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>404 Not Found</title>\n</head><body>\n<h1>Not Found</h1>\n<p>The requested URL %s was not found on this server</p>\n</body></html>", cleanpath);
-          
+          sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>404 Not Found</title>\n</head><body>\n<h1>Not Found</h1>\n<p>The requested URL %s was not found on this server</p>\n</body> <img src=\"https://t00.deviantart.net/cjaQeweEbpdyNDQ_P6tmBz2x0Mo=/fit-in/700x350/filters:fixed_height(100,100):origin()/pre00/d98e/th/pre/i/2016/162/a/3/dead_link_by_mr_sage-d78unho.png\"></html>", cleanpath);
+          //sprintf(htmlCode, "<!DOCTYPE html><html><input id=\"image\" type=\"image\" width=\"100\" height=\"30\" alt=\"Login\" src=\"https://t00.deviantart.net/cjaQeweEbpdyNDQ_P6tmBz2x0Mo=/fit-in/700x350/filters:fixed_height(100,100):origin()/pre00/d98e/th/pre/i/2016/162/a/3/dead_link_by_mr_sage-d78unho.png\"></body></html>");          
           sprintf(outBuffer, "HTTP/1.%d 404 Not Found\r\nDate: %s\r\nServer: %s\r\nAllow: GET,POST,OPTIONS\r\nContent-Length: %lu\r\nConnection: close\r\nContent-Type: text/html\r\n\r\n%s\r\n", minor_version, date, server_signature, sizeof(char)*strlen(htmlCode), htmlCode);
           break;
 
