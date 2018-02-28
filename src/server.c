@@ -64,8 +64,6 @@ int main(/*int argc, char **argv*/){
 
     //char* inBuffer;
 	//char* outBuffer;
-
-	do_daemon();
 	
 	int clientsock;
 	struct addrinfo* addr;
@@ -90,6 +88,8 @@ int main(/*int argc, char **argv*/){
 
     cfg = cfg_init(opts, 0);
     cfg_parse(cfg, "server.conf");
+
+	do_daemon();
 
     char inBuffer[buf_size];
     char outBuffer[buf_size];
