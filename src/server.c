@@ -22,7 +22,7 @@
 #include "socket_management.h"
 #include "picohttpparser.h"
 #include "http_processing.h"
-
+#include "daemon.h"
 
 int sock;
 cfg_t *cfg;
@@ -64,6 +64,8 @@ int main(/*int argc, char **argv*/){
 
     //char* inBuffer;
 	//char* outBuffer;
+
+	do_daemon();
 	
 	int clientsock;
 	struct addrinfo* addr;
