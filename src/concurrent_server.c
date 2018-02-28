@@ -22,6 +22,7 @@
 #include "socket_management.h"
 #include "http_processing.h"
 #include "threadPool.h"
+#include "daemon.h"
 
 int sock;
 cfg_t *cfg;
@@ -57,15 +58,12 @@ int handle_petition(int socket, char* inBuffer, char* outBuffer){
 
     parse_petition(socket, inBuffer, outBuffer, server_signature, server_root, buf_size); // ATENCION, CAMBIAR PRIMER ARGUMENTO
     
-    //response_petition(inBuffer, outBuffer);
-    
-    //sprintf(outBuffer, "%c\n", inBuffer[0]);
     sleep(1);
 
     return 0;
 }
 
-int main(/*int argc, char **argv*/){
+int main(){
 
 	sigset_t set;
 	struct addrinfo* addr;
@@ -84,11 +82,7 @@ int main(/*int argc, char **argv*/){
     cfg = cfg_init(opts, 0);
     cfg_parse(cfg, "server.conf");
 
-    printf("server_root: %s\n", server_root);
-    printf("max_clients: %ld\n", max_clients);
-    printf("listen_port: %s\n", listen_port);
-    printf("server_signature: %s\n", server_signature);
-    printf("buf_size: %ld\n", buf_size);
+    do_daemon();
 	
 	//La estructura hints se pasa a getaddrinfo con una serie de parametros que queremos que cumpla la direccion que se devuelve en addr
 	struct addrinfo hints;

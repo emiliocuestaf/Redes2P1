@@ -8,7 +8,6 @@
 #include <sys/stat.h>
 #include <syslog.h>
 
-
 void do_daemon(void);
 
 #endif

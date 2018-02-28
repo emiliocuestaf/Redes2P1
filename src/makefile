@@ -25,7 +25,7 @@ client:	client.o socket_management.o daemon.o threadPool.o
 
 server: server.o socket_management.o picohttpparser.o http_processing.o daemon.o
 
-concurrent_server: concurrent_server.o socket_management.o http_processing.o threadPool.o picohttpparser.o
+concurrent_server: concurrent_server.o socket_management.o http_processing.o threadPool.o picohttpparser.o daemon.o
 
 
 # receta para hacer un .d (dependencias automaticas de tipo .h para tus .o)
