@@ -35,10 +35,6 @@ static long int buf_size = 0;
 static char* listen_port = NULL;
 static char* server_signature = NULL;
 
-//Estructura para pasar argumentos al thread
-typedef struct _args{
-    int dim;
-} args;
 
 /*Funcion que se encarga de manejar la señal SIGINT (Ctrl+C)*/
 

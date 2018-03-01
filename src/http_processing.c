@@ -16,6 +16,11 @@
 
 #define DIREC_SIZE 100
 
+#define NO_SCRIPT 0
+#define PYTHON_SCRIPT 1
+#define PHP_SCRIPT 2 
+
+
 /*Funcion que genera la fecha actual*/
 
 char* get_date(){
@@ -36,7 +41,8 @@ char* get_mod_time(struct stat* fStat) {
     return buf;
 }
 
-/*Funcion que devuelve el Content-Type de un fichero*/
+/*Funcion que devuelve el Content-Type de un fichero, a excepcion de los 
+ficheros .py o .php cuyo retorno es su misma extension*/
 
 char *filename_ext(char *fname) {
     char *dot = strrchr(fname, '.');
@@ -56,8 +62,10 @@ char *filename_ext(char *fname) {
         return "application/msword";
       else if(strcmp(dot+1, "pdf") == 0)
         return "application/pdf";
-      else if(strcmp(dot+1, "py") == 0 || strcmp(dot+1, "php") == 0)
-        return "text/html"; //Habrá que cambiarlo
+      else if(strcmp(dot+1, "py") == 0)
+        return "py";
+      else if(strcmp(dot+1, "php") == 0)
+        return "php";
       else
         return "";
     } 
@@ -270,8 +278,13 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
 int get_response(char* server_signature, int clientsock, char* direc, char* cleanpath, int max_buffer, char* outBuffer, int minor_version){
   int f;
   int length;
+  int scriptflag = NO_SCRIPT;
   char* date, *modDate, *ext;
   struct stat fStat;
+  char* argspointer;
+  char args[200];
+  char command[DIREC_SIZE+2];
+  FILE* pipe;
 
   f = open(direc, O_RDONLY);
   if(f < 0){
@@ -290,8 +303,16 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
   date = get_date();
   modDate = get_mod_time(&fStat); 
   ext = filename_ext(direc);
-
-  if(strcmp(ext, "") == 0){
+  
+  if(strcmp(ext, "py") == 0){
+    scriptflag = PYTHON_SCRIPT;
+    ext = "text/html";
+  }
+  else if (strcmp(ext, "php")){
+    scriptflag = PHP_SCRIPT;
+    ext = "text/html";
+  }
+  else if(strcmp(ext, "") == 0){
     error_response(server_signature, clientsock, cleanpath, outBuffer, 404, minor_version);
     close(f);
     free (date);
@@ -311,28 +332,53 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
     return ERROR;
   }
 
-  length = max_buffer;
 
-  /*Enviamos el fichero en trozos de tamaño MAX_BUFFER como maximo*/
+  if(scriptflag == NO_SCRIPT){
+      length = max_buffer;
 
-  while(length == max_buffer){
-    length = read(f, outBuffer, max_buffer);
-    if(length < 0){
-      perror("Error leyendo.\n");
-      close(f);
-      free (date);
-      free (modDate);
-      return ERROR;
-    }
-    else if(length > 0){
-      if(my_send(clientsock, outBuffer, length) < 0){
-        perror("Error enviando");
+      /*Enviamos el fichero en trozos de tamaño MAX_BUFFER como maximo*/
+      while(length == max_buffer){
+        length = read(f, outBuffer, max_buffer);
+        if(length < 0){
+          perror("Error leyendo.\n");
           close(f);
           free (date);
           free (modDate);
-        return ERROR;
+          return ERROR;
+        }
+        else if(length > 0){
+          if(my_send(clientsock, outBuffer, length) < 0){
+            perror("Error enviando");
+            close(f);
+            free (date);
+            free (modDate);
+            return ERROR;
+          }
+        }
       }
-    }
+  } else if (scriptflag == PYTHON_SCRIPT){
+     /* argspointer = strrchr(path, '?');
+      pipe = fopen("debuggingpyscript.txt", "w");
+      strcpy(args, argspointer+1);
+      fprintf(pipe, "%s\n", args);
+      sprintf(command, "./%s %s", direc, args);
+      fprintf(pipe, "%s\n", command);
+      fclose(pipe);
+      pipe = popen(command, "r");
+      if(pipe == NULL)
+        return ERROR;
+
+      fread(outBuffer, max_buffer,1, pipe);
+      if(my_send(clientsock, outBuffer, length) < 0){
+            perror("Error enviando");
+            close(f);
+            free (date);
+            free (modDate);
+            return ERROR;
+      }   */
+  }
+  else{ //Caso PHP_SCRIPT 
+
   }
 
   close(f);
