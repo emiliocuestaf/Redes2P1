@@ -82,7 +82,10 @@ int main(){
     cfg = cfg_init(opts, 0);
     cfg_parse(cfg, "server.conf");
 
-    do_daemon();
+    if(demonizar() < 0){
+        syslog(LOG_ERR, "Error en Concurrent Server: Error en demonizar()");
+        return -1;
+    }
 	
 	//La estructura hints se pasa a getaddrinfo con una serie de parametros que queremos que cumpla la direccion que se devuelve en addr
 	struct addrinfo hints;
