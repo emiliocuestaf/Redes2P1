@@ -380,8 +380,10 @@ int error_response(char* server_signature, int clientsock, char* cleanpath, char
 
         /*Caso archivo No Encontrado*/
         case 404:
-          sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>404 Not Found</title>\n</head><body>\n<h1>Not Found</h1>\n<p>The requested URL %s was not found on this server</p>\n</body> <img src=\"https://t00.deviantart.net/cjaQeweEbpdyNDQ_P6tmBz2x0Mo=/fit-in/700x350/filters:fixed_height(100,100):origin()/pre00/d98e/th/pre/i/2016/162/a/3/dead_link_by_mr_sage-d78unho.png\"></html>", cleanpath);
-          //sprintf(htmlCode, "<!DOCTYPE html><html><input id=\"image\" type=\"image\" width=\"100\" height=\"30\" alt=\"Login\" src=\"https://t00.deviantart.net/cjaQeweEbpdyNDQ_P6tmBz2x0Mo=/fit-in/700x350/filters:fixed_height(100,100):origin()/pre00/d98e/th/pre/i/2016/162/a/3/dead_link_by_mr_sage-d78unho.png\"></body></html>");          
+          //sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>404 Not Found</title>\n</head><body>\n<h1>Not Found</h1>\n<p>The requested URL %s was not found on this server</p>\n</body> <img src=\"https://t00.deviantart.net/cjaQeweEbpdyNDQ_P6tmBz2x0Mo=/fit-in/700x350/filters:fixed_height(100,100):origin()/pre00/d98e/th/pre/i/2016/162/a/3/dead_link_by_mr_sage-d78unho.png\"></html>", cleanpath);
+          sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html lang = \"en\"><head>\n<title>%s could not be found</title>\n</head><body>\n<h1>404 RESOURCE NOT FOUND</h1>\n<p><img src = \"https://pre00.deviantart.net/d98e/th/pre/i/2016/162/a/3/dead_link_by_mr_sage-d78unho.png\"alt = \"Link not found\"/></p>\n</body></html>", cleanpath);
+
+
           sprintf(outBuffer, "HTTP/1.%d 404 Not Found\r\nDate: %s\r\nServer: %s\r\nAllow: GET,POST,OPTIONS\r\nContent-Length: %lu\r\nConnection: close\r\nContent-Type: text/html\r\n\r\n%s\r\n", minor_version, date, server_signature, sizeof(char)*strlen(htmlCode), htmlCode);
           break;
 
