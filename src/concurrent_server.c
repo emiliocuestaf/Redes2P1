@@ -76,7 +76,12 @@ int main(){
 	
 
     cfg = cfg_init(opts, 0);
-    cfg_parse(cfg, "server.conf");
+
+    if(cfg_parse(cfg, "./src/server.conf") == CFG_PARSE_ERROR){
+        syslog(LOG_ERR, "Error en Concurrent Server: Error en cfg_parse()");
+        return -1;
+    }
+
 
     /*if(demonizar() < 0){
         syslog(LOG_ERR, "Error en Concurrent Server: Error en demonizar()");

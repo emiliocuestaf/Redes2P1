@@ -236,11 +236,17 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
     else{
       /*Caso en que hay ?, con un pequeño juego de aritmetica de punteros se puede solucionar*/
       sprintf(cleanpath, "%.*s", (qptr-auxpath)*sizeof(char), auxpath);
-      sprintf(args, "%s", ((auxpath+path_len)-qptr)*sizeof(char), auxpath);
+      long int pimba;
+      pimba = ((auxpath+path_len)-qptr)*sizeof(char);
       FILE* f;
-      f = fopen("dedede.txt", "w");
-      fprintf(f, "%s\n", args);
+      f = fopen("scooby do pampam.txt", "w");
+      fprintf(f, "%lu", pimba-1);
       fclose(f);
+      sprintf(args, "%.*s", ((auxpath+path_len)-qptr-1)*sizeof(char), qptr+1);
+      FILE* fu;
+      fu = fopen("dedede.txt", "w");
+      fprintf(fu, "%s\n", args);
+      fclose(fu);
       free(auxpath);
     }
 
