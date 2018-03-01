@@ -181,11 +181,10 @@ int allowed_methods(allowedMethods* met, char* path, int path_len){
 int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, char* root, long int buf_size){
     char* server_signature = NULL;
     char direc[DIREC_SIZE];
-    char* cleanpath;
+    char *method, *path, *cleanpath, *args, *auxpath, *qptr;
     int clientsock;
     int max_buffer;
     int i;
-    char *method, *path;
     int pret, minor_version;
     struct phr_header headers[100];
     size_t method_len, path_len, num_headers;
@@ -204,7 +203,7 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
         if(error_response(server_signature, clientsock, path, outBuffer, 400, minor_version) == ERROR)
           return ERROR;
         return OK;
-        }
+    }
 
     if(allowed_methods(&am, path, path_len) == ERROR){
         FILE* f;
@@ -221,9 +220,32 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
     sprintf(aux, "%.*s", (int)method_len, method);
 
 
-    /*Guardamos la ruta del fichero concatenando con server_root*/
+    /*Para limpiar el path, es necesario distinguir si se pasan argumentos detras de un ? o no,
+      aunque luego tengan que ser ignorados si no es un script*/
+    auxpath = (char*) malloc ((path_len+1)* sizeof(char));
     cleanpath = (char*) malloc ((path_len+1)* sizeof(char));
-    sprintf(cleanpath, "%.*s", (int)path_len, path);
+    args = (char*) malloc ((path_len+1)* sizeof(char));
+
+    sprintf(auxpath, "%.*s", (int)path_len, path);
+    qptr = strchr(auxpath, '?');
+    /*Caso en que no hay ?, path_len funciona bien*/
+    if(qptr == NULL){
+      strcpy(cleanpath, auxpath);
+      free(auxpath);
+    }
+    else{
+      /*Caso en que hay ?, con un pequeño juego de aritmetica de punteros se puede solucionar*/
+      sprintf(cleanpath, "%.*s", (qptr-auxpath)*sizeof(char), auxpath);
+      sprintf(args, "%s", ((auxpath+path_len)-qptr)*sizeof(char), auxpath);
+      FILE* f;
+      f = fopen("dedede.txt", "w");
+      fprintf(f, "%s\n", args);
+      fclose(f);
+      free(auxpath);
+    }
+
+
+    /*Guardamos la ruta del fichero concatenando con server_root*/
     sprintf(direc, "%s%s", root, cleanpath);
 
 
@@ -246,11 +268,9 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
       free(cleanpath);
       return OK;
   	}
-
     else if(strcmp(aux, "POST") == 0){
       response_petition(inBuffer, outBuffer); // Respuesta genérica
-    }
-  	
+    }	
   	else if (strcmp(aux, "OPTIONS") == 0){
       if(options_response(server_signature, clientsock,outBuffer, minor_version, &am) == ERROR){
         perror("Error en HTTP Response GET.");
@@ -308,7 +328,7 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
     scriptflag = PYTHON_SCRIPT;
     ext = "text/html";
   }
-  else if (strcmp(ext, "php")){
+  else if (strcmp(ext, "php") == 0){
     scriptflag = PHP_SCRIPT;
     ext = "text/html";
   }

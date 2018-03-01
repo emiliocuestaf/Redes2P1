@@ -89,7 +89,7 @@ int main(/*int argc, char **argv*/){
     cfg = cfg_init(opts, 0);
     cfg_parse(cfg, "server.conf");
 
-	do_daemon();
+	demonizar();
 
     char inBuffer[buf_size];
     char outBuffer[buf_size];
