@@ -75,18 +75,18 @@ char *filename_ext(char *fname) {
 
 /*Funcion que devuelve los metodos validos en cada carpeta. 
   Retorno: Devuelve los datos que nos interesan dentro la estructura*/
-int allowed_methods(allowedMethods* met, char* path, int path_len){
-  if( (met == NULL) || (path == NULL))
+int allowed_methods(allowedMethods* met, char* cleanpath){
+  if( (met == NULL) || (cleanpath == NULL))
     return ERROR;
 
   char delim = '/';
-  char* aux;
   char * token1;
   char * token2;
+  char* aux;
 
 
-  aux = (char *) malloc ((path_len +1)* sizeof(char));
-  sprintf(aux, "%.*s",  path_len, path);
+  aux = (char *) malloc (strlen(cleanpath)+1);
+  strcpy(aux, cleanpath);
 
   if((strcmp(aux, "/*") == 0) || (strcmp(aux, "*") == 0)){
     met->nummethods = 3;
@@ -98,20 +98,14 @@ int allowed_methods(allowedMethods* met, char* path, int path_len){
     return OK;
   }
 
-  //TODO: RESOLVER CUANDO STRTOK DA NULL, NO DEVOLVEMOS NADA, ESTO DEBERIA DAR EL CASO DEFAULT, NO SEGFAULT
-  FILE* f;
-  f = fopen("debbuging.txt", "w");
+
   token1=strtok(aux, &delim);
   if(token1 == NULL){
     free(aux);
     return ERROR;
   }
   token2=strtok(NULL, &delim);
-  fprintf(f, "%s\n", path);
-  fprintf(f, "%s\n", aux);
-  fprintf(f, "%s\n",token1);
-  fprintf(f, "%s\n",token2);
-  fclose(f);
+
 
   if((strcmp(token1, "files") == 0) && (strcmp(token2, "docs") == 0)){
     met->nummethods = 2;
@@ -205,23 +199,13 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
         return OK;
     }
 
-    if(allowed_methods(&am, path, path_len) == ERROR){
-        FILE* f;
-        f = fopen("stilldebugging.txt", "w");
-        fprintf(f, "es aqui donde el allowed\n" );
-        fclose(f);
-        if(error_response(server_signature, clientsock, path, outBuffer, 400, minor_version) == ERROR)
-          return ERROR;
-        return OK;
-    }
-
     /*Guardamos el método*/
     char aux[20];
     sprintf(aux, "%.*s", (int)method_len, method);
 
 
     /*Para limpiar el path, es necesario distinguir si se pasan argumentos detras de un ? o no,
-      aunque luego tengan que ser ignorados si no es un script*/
+      aunque luego tengan que ser ignorados si el fichero solicitado no es un script*/
     auxpath = (char*) malloc ((path_len+1)* sizeof(char));
     cleanpath = (char*) malloc ((path_len+1)* sizeof(char));
     args = (char*) malloc ((path_len+1)* sizeof(char));
@@ -234,7 +218,8 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
       free(auxpath);
     }
     else{
-      /*Caso en que hay ?, con un pequeño juego de aritmetica de punteros se puede solucionar*/
+      /*Caso en que hay ?, con aritmetica de punteros se puede solucionar
+        Tambien se guarda la cadena de argumentos, que mas tarde puede ser necesaria */
       sprintf(cleanpath, "%.*s", (qptr-auxpath)*sizeof(char), auxpath);
       long int pimba;
       pimba = ((auxpath+path_len)-qptr)*sizeof(char);
@@ -242,49 +227,83 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
       f = fopen("scooby do pampam.txt", "w");
       fprintf(f, "%lu", pimba-1);
       fclose(f);
-      sprintf(args, "%.*s", ((auxpath+path_len)-qptr-1)*sizeof(char), qptr+1);
-      FILE* fu;
-      fu = fopen("dedede.txt", "w");
-      fprintf(fu, "%s\n", args);
-      fclose(fu);
+      sprintf(args, "%.*s", ((auxpath+path_len)-qptr)*sizeof(char), qptr+1);
+
       free(auxpath);
     }
+      FILE* fu;
+      fu = fopen("dedede.txt", "a");
+      fprintf(fu, "%s\n", cleanpath);
+      fclose(fu);
 
-
+    if(allowed_methods(&am, cleanpath) == ERROR){
+        if(error_response(server_signature, clientsock, path, outBuffer, 400, minor_version) == ERROR)
+          return ERROR;
+        return OK;
+    }
     /*Guardamos la ruta del fichero concatenando con server_root*/
     sprintf(direc, "%s%s", root, cleanpath);
-
 
   	if(strcmp(aux, "GET") == 0){
       for(i=0; i < am.nummethods; i++){
         if(strcmp(am.methods[i], "GET") == 0){
-          if(get_response(server_signature, clientsock, direc, cleanpath, max_buffer, outBuffer, minor_version) == ERROR){
+          if(get_response(server_signature, clientsock, direc, cleanpath, args, max_buffer, outBuffer, minor_version) == ERROR){
             perror("Error en HTTP Response GET.");
             free(cleanpath);
+            free(args);
             return ERROR;
           }
+          free(args);
           free(cleanpath);
           return OK;
         }
       }
       if(error_response(server_signature, clientsock, cleanpath, outBuffer, 405, minor_version) == ERROR){
           free(cleanpath);
+          free(args);
           return ERROR;
-        }
-      free(cleanpath);
-      return OK;
+      }
   	}
     else if(strcmp(aux, "POST") == 0){
-      response_petition(inBuffer, outBuffer); // Respuesta genérica
+      for(i=0; i < am.nummethods; i++){
+        if(strcmp(am.methods[i], "POST") == 0){
+          if(post_response(server_signature, clientsock,outBuffer, minor_version, &am) == ERROR){
+              perror("Error en HTTP Response POST.");
+              free(cleanpath);
+              free(args);
+              return ERROR;
+          }
+          free(args);
+          free(cleanpath);
+          return OK;
+        }
+      }
+      if(error_response(server_signature, clientsock, cleanpath, outBuffer, 405, minor_version) == ERROR){
+          free(cleanpath);
+          free(args);
+          return ERROR;
+      } 
     }	
   	else if (strcmp(aux, "OPTIONS") == 0){
-      if(options_response(server_signature, clientsock,outBuffer, minor_version, &am) == ERROR){
-        perror("Error en HTTP Response GET.");
-        free(cleanpath);
-        return ERROR;
-      }  	
+      for(i=0; i < am.nummethods; i++){
+        if(strcmp(am.methods[i], "OPTIONS") == 0){
+          if(options_response(server_signature, clientsock,outBuffer, minor_version, &am) == ERROR){
+              perror("Error en HTTP Response OPTIONS.");
+              free(cleanpath);
+              free(args);
+              return ERROR;
+          }
+          free(args);
+          free(cleanpath);
+          return OK;
+        }
+      }
+      if(error_response(server_signature, clientsock, cleanpath, outBuffer, 405, minor_version) == ERROR){
+          free(cleanpath);
+          free(args);
+          return ERROR;
+      }	
     }
-
     else{
       if(error_response(server_signature, clientsock, cleanpath, outBuffer, 501, minor_version) == ERROR){
         perror("Error en HTTP Response ERROR");
@@ -293,6 +312,7 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
       }
     }
 
+    free(args);
     free(cleanpath);
     return OK;
 }
@@ -301,14 +321,13 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
 
 /*Funcion que responde a un get*/
 
-int get_response(char* server_signature, int clientsock, char* direc, char* cleanpath, int max_buffer, char* outBuffer, int minor_version){
+int get_response(char* server_signature, int clientsock, char* direc, char* cleanpath, char* args, int max_buffer, char* outBuffer, int minor_version){
   int f;
   int length;
   int scriptflag = NO_SCRIPT;
   char* date, *modDate, *ext;
   struct stat fStat;
   char* argspointer;
-  char args[200];
   char command[DIREC_SIZE+2];
   FILE* pipe;
 
@@ -330,6 +349,8 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
   modDate = get_mod_time(&fStat); 
   ext = filename_ext(direc);
   
+  /*Cuando detectamos que el fichero a procesar se trata de un script, asignamos a la flag el valor correspondiente
+    y, como la salida de los scrips podria ser html, asignamos ese tipo de mensaje para que el navegador lo pueda interpretar*/
   if(strcmp(ext, "py") == 0){
     scriptflag = PYTHON_SCRIPT;
     ext = "text/html";
@@ -358,9 +379,10 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
     return ERROR;
   }
 
+  memset(outBuffer,0,max_buffer);
+  length = max_buffer;
 
   if(scriptflag == NO_SCRIPT){
-      length = max_buffer;
 
       /*Enviamos el fichero en trozos de tamaño MAX_BUFFER como maximo*/
       while(length == max_buffer){
@@ -381,30 +403,77 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
             return ERROR;
           }
         }
+
+        memset(outBuffer,0,max_buffer);
+
       }
   } else if (scriptflag == PYTHON_SCRIPT){
-     /* argspointer = strrchr(path, '?');
-      pipe = fopen("debuggingpyscript.txt", "w");
-      strcpy(args, argspointer+1);
-      fprintf(pipe, "%s\n", args);
-      sprintf(command, "./%s %s", direc, args);
-      fprintf(pipe, "%s\n", command);
-      fclose(pipe);
+
+      sprintf(command, "python %s \"%s\"", direc, args);
       pipe = popen(command, "r");
       if(pipe == NULL)
         return ERROR;
 
-      fread(outBuffer, max_buffer,1, pipe);
-      if(my_send(clientsock, outBuffer, length) < 0){
+      while(length == max_buffer){
+        length = fread(outBuffer, max_buffer,1, pipe);
+        if(length < 0){
+          perror("Error leyendo.\n");
+          close(f);
+          free (date);
+          free (modDate);
+          return ERROR;
+        }
+        else if(length > 0){
+          if(my_send(clientsock, outBuffer, length) < 0){
             perror("Error enviando");
             close(f);
             free (date);
             free (modDate);
             return ERROR;
-      }   */
+          }
+        }
+      }
+      if(pclose(pipe) == -1){
+        syslog(LOG_ERR, "Error en GET PYTHON SCRIPT: Error cerrando pipe");
+        close(f);
+        free (date);
+        free (modDate);
+        return ERROR;
+      }
   }
   else{ //Caso PHP_SCRIPT 
+      sprintf(command, "php %s \"%s\"", direc, args);
+      pipe = popen(command, "r");
+      if(pipe == NULL)
+        return ERROR;
 
+      while(length == max_buffer){
+        length = fread(outBuffer, max_buffer,1, pipe);
+        if(length < 0){
+          perror("Error leyendo.\n");
+          close(f);
+          free (date);
+          free (modDate);
+          return ERROR;
+        }
+        else if(length > 0){
+          if(my_send(clientsock, outBuffer, length) < 0){
+            perror("Error enviando");
+            close(f);
+            free (date);
+            free (modDate);
+            return ERROR;
+          }
+        }
+      }
+
+      if(pclose(pipe) == -1){
+        syslog(LOG_ERR, "Error en GET PYTHON SCRIPT: Error cerrando pipe");
+        close(f);
+        free (date);
+        free (modDate);
+        return ERROR;
+      }
   }
 
   close(f);

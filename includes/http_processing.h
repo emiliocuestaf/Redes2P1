@@ -27,7 +27,7 @@ char* get_mod_time(struct stat* fStat);
 
 char *filename_ext(char *fname);
 
-int get_response(char* server_signature, int clientsock, char* direc, char* cleanpath, int buffer_size,  char* outBuffer, int minor_version);
+int get_response(char* server_signature, int clientsock, char* direc, char* cleanpath, char* args, int buffer_size,  char* outBuffer, int minor_version);
 int options_response(char* server_signature, int clientsock, char*outBuffer, int minor_version, allowedMethods* am);
 int post_response(char* server_signature, int clientsock, char* direc, char* outBuffer, int minor_version);
 /*Funcion que parsea una peticion HTTP*/
