@@ -220,14 +220,8 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
     else{
       /*Caso en que hay ?, con aritmetica de punteros se puede solucionar
         Tambien se guarda la cadena de argumentos, que mas tarde puede ser necesaria */
-      sprintf(cleanpath, "%.*s", (qptr-auxpath)*sizeof(char), auxpath);
-      long int pimba;
-      pimba = ((auxpath+path_len)-qptr)*sizeof(char);
-      FILE* f;
-      f = fopen("scooby do pampam.txt", "w");
-      fprintf(f, "%lu", pimba-1);
-      fclose(f);
-      sprintf(args, "%.*s", ((auxpath+path_len)-qptr)*sizeof(char), qptr+1);
+      sprintf(cleanpath, "%.*s", (int) (qptr-auxpath)*sizeof(char), auxpath);
+      sprintf(args, "%.*s", (int) ((auxpath+path_len)-qptr)*sizeof(char), qptr+1);
 
       free(auxpath);
     }
@@ -266,7 +260,7 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
   	}
     else if(strcmp(aux, "POST") == 0){
       for(i=0; i < am.nummethods; i++){
-        if(strcmp(am.methods[i], "POST") == 0){
+        /*if(strcmp(am.methods[i], "POST") == 0){
           if(post_response(server_signature, clientsock,outBuffer, minor_version, &am) == ERROR){
               perror("Error en HTTP Response POST.");
               free(cleanpath);
@@ -276,7 +270,7 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
           free(args);
           free(cleanpath);
           return OK;
-        }
+        }*/
       }
       if(error_response(server_signature, clientsock, cleanpath, outBuffer, 405, minor_version) == ERROR){
           free(cleanpath);
@@ -414,8 +408,7 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
       if(pipe == NULL)
         return ERROR;
 
-      while(length == max_buffer){
-        length = fread(outBuffer, max_buffer,1, pipe);
+      length = fread(outBuffer, max_buffer,1, pipe);
         if(length < 0){
           perror("Error leyendo.\n");
           close(f);
@@ -430,9 +423,9 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
             free (date);
             free (modDate);
             return ERROR;
-          }
         }
       }
+      
       if(pclose(pipe) == -1){
         syslog(LOG_ERR, "Error en GET PYTHON SCRIPT: Error cerrando pipe");
         close(f);
@@ -447,8 +440,7 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
       if(pipe == NULL)
         return ERROR;
 
-      while(length == max_buffer){
-        length = fread(outBuffer, max_buffer,1, pipe);
+      length = fread(outBuffer, max_buffer,1, pipe);
         if(length < 0){
           perror("Error leyendo.\n");
           close(f);
@@ -463,9 +455,9 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
             free (date);
             free (modDate);
             return ERROR;
-          }
         }
       }
+      
 
       if(pclose(pipe) == -1){
         syslog(LOG_ERR, "Error en GET PYTHON SCRIPT: Error cerrando pipe");
@@ -486,9 +478,10 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
 /*Funcion que responde a un post*/
 /*En nuestro caso solo sirve para ejecutar scripts*/
 
-int post_response(char* server_signature, int clientsock, char* direc, char* outBuffer, int minor_version){
+int post_response(char* server_signature, int clientsock, char* direc, char* cleanpath, char* args, int buffer_size,  char* outBuffer, int minor_version){
   return OK;
 }
+
 
 
 int options_response(char* server_signature, int clientsock, char* outBuffer, int minor_version, allowedMethods* am){

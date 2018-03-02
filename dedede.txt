@@ -48,3 +48,14 @@
 /files/scripts/pruebaGET.py
 /files/images/cachopo.jpg
 /files/scripts/pruebaGET.py
+/favicon.ico
+/favicon.ico
+/files/scripts/pruebaGET.py
+
+
+/files/images/ph.jpg
+
+/favicon.ico
+/files/images/ph.jpg
+/files/images/ph.jpg
+/files/scripts/pruebaGET.py
