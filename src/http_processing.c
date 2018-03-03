@@ -106,8 +106,16 @@ int allowed_methods(allowedMethods* met, char* cleanpath){
   }
   token2=strtok(NULL, &delim);
 
-
-  if((strcmp(token1, "files") == 0) && (strcmp(token2, "docs") == 0)){
+  if((strcmp(token1, "files") && (token2 == NULL))){
+    met->nummethods = 3;
+    strcpy(met->methods[0],"GET");
+    strcpy(met->methods[1], "OPTIONS");
+    strcpy(met->methods[2], "POST");
+    strcpy(met->txtChain, "GET,OPTIONS,POST");
+    free(aux);
+    return OK;
+  }
+  else if((strcmp(token1, "files") == 0) && (strcmp(token2, "docs") == 0)){
     met->nummethods = 2;
     strcpy(met->methods[0],"GET");
     strcpy(met->methods[1], "OPTIONS");
@@ -145,15 +153,6 @@ int allowed_methods(allowedMethods* met, char* cleanpath){
     strcpy(met->methods[0],"GET");
     strcpy(met->methods[1], "OPTIONS");
     strcpy(met->txtChain, "GET,OPTIONS");
-    free(aux);
-    return OK;
-  }
-  else if((strcmp(token1, "files") == 0)){
-    met->nummethods = 3;
-    strcpy(met->methods[0],"GET");
-    strcpy(met->methods[1], "OPTIONS");
-    strcpy(met->methods[2], "POST");
-    strcpy(met->txtChain, "GET,OPTIONS,POST");
     free(aux);
     return OK;
   }
@@ -414,11 +413,7 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
 
       }
   } else if (scriptflag == PYTHON_SCRIPT){
-      FILE* esci;
-      esci = fopen("scriptes.txt", "w");
       sprintf(command, "python %s \"%s\"", direc, args);
-      fprintf(esci, "%s\n",command);
-      fclose(esci);
       pipe = popen(command, "r");
       if(pipe == NULL)
         return ERROR;
@@ -432,9 +427,10 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
         return ERROR;
       }
 
-       sprintf(outBufferAux, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, length*sizeof(char), ext);
-
+      sprintf(outBufferAux, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, strlen(outBuffer)*sizeof(char), ext);
+      
       /*Enviamos cabeceras*/
+
 
       if(my_send(clientsock, outBufferAux, strlen(outBufferAux)*sizeof(char)) < 0){
         perror("Error enviando.\n");
@@ -469,21 +465,16 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
      
       if(pipe == NULL)
         return ERROR;
-      wait(5);
+
       length = fread((void*)outBuffer, max_buffer,1, pipe);
       if(length < 0){
-          FILE* registrolecturasscripts;
-          registrolecturasscripts = fopen("registrolecturas.txt", "a");
-          fprintf(registrolecturasscripts, "%s\nEERROR LEYENDO", outBuffer );
-          fclose(registrolecturasscripts);
-          perror("Error leyendo.\n");
           close(f);
           free (date);
           free (modDate);
           return ERROR;
         }
-
-       sprintf(outBufferAux, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, length*sizeof(char), ext);
+         
+       sprintf(outBufferAux, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, strlen(outBuffer)*sizeof(char), ext);
 
       /*Enviamos cabeceras*/
 
@@ -497,7 +488,7 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
 
       /*Enviamos resultado de la ejecución*/
 
-      if(my_send(clientsock, outBuffer, strlen(outBuffer)*sizeof(char) +100) < 0){
+      if(my_send(clientsock, outBuffer, strlen(outBuffer)*sizeof(char)) < 0){
             perror("Error enviando");
             close(f);
             free (date);
@@ -525,7 +516,7 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
 /*En nuestro caso solo sirve para ejecutar scripts*/
 
 int post_response(char* server_signature, int clientsock, char* direc, char* cleanpath, char* body, char* args_url, int max_buffer,  char* outBuffer, int minor_version){
- int f;
+  int f;
   int length;
   int scriptflag = NO_SCRIPT;
   char* date, *modDate, *ext;
@@ -578,12 +569,34 @@ int post_response(char* server_signature, int clientsock, char* direc, char* cle
   } 
   else if (scriptflag == PYTHON_SCRIPT){
 
+            FILE* esta;
+      esta = fopen("talvezesta.txt", "w");
+      fprintf(esta, "DIREC: %s\n",direc);
+      fclose(esta);
+
+      esta = fopen("talvezesta2.txt", "w");
+      fprintf(esta, "BODY: %s\n",body);
+      fclose(esta);
+
+
       sprintf(command, "echo \"%s\" | python %s \"%s\"", body, direc, args_url);
       pipe = popen(command, "r");
       if(pipe == NULL)
         return ERROR;
 
+      
+      esta = fopen("esta.txt", "w");
+      fprintf(esta, "COMANDO: %s\n",command);
+      fclose(esta);
+
       length = fread(outBuffer, max_buffer,1, pipe);
+         
+
+    /*     esta = fopen("esta.txt", "w");
+      fprintf(esta, "SALIDA: %s\n",outBuffer);
+      fclose(f);
+*/
+
         if(length < 0){
           perror("Error leyendo.\n");
           close(f);
@@ -592,9 +605,9 @@ int post_response(char* server_signature, int clientsock, char* direc, char* cle
           return ERROR;
         }
         else if(length > 0){
-          sprintf(outBufferAux, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, length*sizeof(char), ext);
+          sprintf(outBufferAux, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, strlen(outBuffer)*sizeof(char), ext);
           /*Enviamos cabeceras*/
-          if(my_send(clientsock, outBufferAux, length*sizeof(char)) < 0){
+          if(my_send(clientsock, outBufferAux, strlen(outBuffer)*sizeof(char)) < 0){
             perror("Error enviando.\n");
             close(f);
             free (date);
@@ -634,16 +647,16 @@ int post_response(char* server_signature, int clientsock, char* direc, char* cle
           return ERROR;
         }
         else if(length > 0){
-          sprintf(outBufferAux, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, length*sizeof(char), ext);
+          sprintf(outBufferAux, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, strlen(outBuffer)*sizeof(char), ext);
           /*Enviamos cabeceras*/
-          if(my_send(clientsock, outBufferAux, length*sizeof(char)) < 0){
+          if(my_send(clientsock, outBufferAux, strlen(outBuffer)*sizeof(char)) < 0){
             perror("Error enviando.\n");
             close(f);
             free (date);
             free (modDate);
             return ERROR;
           }
-        /*Enviamos resultado de la ejecución*/
+          /*Enviamos resultado de la ejecución*/
           if(my_send(clientsock, outBuffer, length) < 0){
             perror("Error enviando");
             close(f);
