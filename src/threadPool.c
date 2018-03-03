@@ -30,7 +30,7 @@ typedef struct _threadPool{
 	pthread_t* threadList;
 	int listeningSocketDescr;
 	//Puntero a funcion handler	
-	int (*handler_pointer)(int, char*, char*);
+	int (*handler_pointer)(int, char*);
 	//Tamaño del buffer de peticiones de entrada/salida
 	long int buffSize;
 	//Flag para una finalizacion mas o menos correcta de los hilos.
@@ -44,7 +44,7 @@ void* thread_behaviour(void* args){
 	//Casting de la estructura de memoria compartida
     threadPool* datos = (threadPool*) args;
     int socket, listeningSocket, buffSize;
-    int (*handler)(int, char*, char*);
+    int (*handler)(int, char*);
  
     
 
@@ -101,7 +101,7 @@ void* thread_behaviour(void* args){
 			pthread_exit(NULL);
 		}
 		
-		if(handler(socket, inBuffer, outBuffer) == -1){
+		if(handler(socket, inBuffer) == -1){
 			syslog(LOG_ERR, "Error en thread: Error en handler()");
 			//pthread_exit(NULL);
 			//No se debe cancelar el hilo si no puede procesar bien una peticion
@@ -116,7 +116,7 @@ void* thread_behaviour(void* args){
     
 }
 
-threadPool* pool_ini(int numThr, int listeningSocketDescr, int buffSize, int(*handler_pointer)(int, char*, char*)){
+threadPool* pool_ini(int numThr, int listeningSocketDescr, int buffSize, int(*handler_pointer)(int, char*)){
 	int i;
 	threadPool* pool;
 	sigset_t set;

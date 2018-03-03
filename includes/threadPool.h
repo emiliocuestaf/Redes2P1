@@ -19,7 +19,7 @@
 
 typedef struct _threadPool threadPool;
 
-threadPool* pool_ini(int numProc, int listeningSocketDescr, int buffSize, int(*handler_pointer)(int, char*, char*));
+threadPool* pool_ini(int numProc, int listeningSocketDescr, int buffSize, int(*handler_pointer)(int, char*));
 void pool_free(threadPool* pool);
 
 #endif

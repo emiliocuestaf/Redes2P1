@@ -1,1 +1,2 @@
-COMANDO: echo ""im lindsley lohan"" | python /home/emi/redes2/practica1/files/scripts/pruebaGET.py ""
+SA69LIDA: Los argumentos obtenidos de la entrada estandar son: Hola como andas
+

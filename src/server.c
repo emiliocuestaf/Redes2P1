@@ -53,7 +53,7 @@ void SIGINT_handler(){
 //De momento va a contestar a todo con un mensaje fijo y un numero generado por una variable global. (Esto habra que quitarlo luego) 
 int handle_petition(int clientsock, char* inBuffer, char* outBuffer){
 
-    parse_petition(clientsock, inBuffer, outBuffer, server_signature, server_root, buf_size);
+    parse_petition(clientsock, inBuffer, server_signature, server_root, buf_size);
     
     sleep(1);
 
