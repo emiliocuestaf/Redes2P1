@@ -43,3 +43,5 @@
 /files/scripts/pruebaGET.py
 
 /files/scripts/pruebaGET.php
+/files/images/cachopo.jpg
+

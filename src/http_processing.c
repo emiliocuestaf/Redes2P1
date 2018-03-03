@@ -175,7 +175,7 @@ int allowed_methods(allowedMethods* met, char* cleanpath){
 int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, char* root, long int buf_size){
     char* server_signature = NULL;
     char direc[DIREC_SIZE];
-    char *method, *path, *cleanpath, *args, *auxpath, *qptr;
+    char *method, *path, *cleanpath, *args, *auxpath, *qptr, *body;
     int clientsock;
     int max_buffer;
     int i;
@@ -198,6 +198,10 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
           return ERROR;
         return OK;
     }
+
+    /* Guardamos el cuerpo de la petición, sumando el num de bytes de la cabecera (que devuelve phr_parse_request) a la dir inicial de inBuffer*/
+
+    body = inBuffer + pret;
 
     /*Guardamos el método*/
     char aux[20];
@@ -265,8 +269,9 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
   	}
     else if(strcmp(aux, "POST") == 0){
       for(i=0; i < am.nummethods; i++){
-        /*if(strcmp(am.methods[i], "POST") == 0){
-          if(post_response(server_signature, clientsock,outBuffer, minor_version, &am) == ERROR){
+        if(strcmp(am.methods[i], "POST") == 0){
+          //CÒMPROBAR SI BODY TIENE ALGO 
+          if(post_response(server_signature, clientsock, direc, cleanpath, body, args, max_buffer, outBuffer, minor_version) == ERROR){
               perror("Error en HTTP Response POST.");
               free(cleanpath);
               free(args);
@@ -275,7 +280,7 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
           free(args);
           free(cleanpath);
           return OK;
-        }*/
+        }
       }
       if(error_response(server_signature, clientsock, cleanpath, outBuffer, 405, minor_version) == ERROR){
           free(cleanpath);
@@ -325,6 +330,7 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
   int length;
   int scriptflag = NO_SCRIPT;
   char* date, *modDate, *ext;
+  char outBufferAux[max_buffer];
   struct stat fStat;
   char command[200];
   FILE* pipe;
@@ -365,24 +371,24 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
     return OK;
   }
 
-  sprintf(outBuffer, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, length*sizeof(char), ext);
-
-  /*Enviamos cabeceras*/
-
-  if(my_send(clientsock, outBuffer, strlen(outBuffer)*sizeof(char)) < 0){
-    perror("Error enviando.\n");
-    close(f);
-    free (date);
-    free (modDate);
-    return ERROR;
-  }
-
-  length = max_buffer;
-  memset(outBuffer,0,max_buffer);
 
 
 
   if(scriptflag == NO_SCRIPT){
+     sprintf(outBuffer, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, length*sizeof(char), ext);
+
+      /*Enviamos cabeceras*/
+
+      if(my_send(clientsock, outBuffer, strlen(outBuffer)*sizeof(char)) < 0){
+        perror("Error enviando.\n");
+        close(f);
+        free (date);
+        free (modDate);
+        return ERROR;
+      }
+
+      length = max_buffer;
+      memset(outBuffer,0,max_buffer);
 
       /*Enviamos el fichero en trozos de tamaño MAX_BUFFER como maximo*/
       while(length == max_buffer){
@@ -425,6 +431,21 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
         free (modDate);
         return ERROR;
       }
+
+       sprintf(outBufferAux, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, length*sizeof(char), ext);
+
+      /*Enviamos cabeceras*/
+
+      if(my_send(clientsock, outBufferAux, strlen(outBufferAux)*sizeof(char)) < 0){
+        perror("Error enviando.\n");
+        close(f);
+        free (date);
+        free (modDate);
+        return ERROR;
+      }
+
+      /*Enviamos resultado de la ejecución*/
+
       if(my_send(clientsock, outBuffer, strlen(outBuffer)*sizeof(char)) < 0){
           perror("Error enviando");
           close(f);
@@ -462,6 +483,20 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
           return ERROR;
         }
 
+       sprintf(outBufferAux, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, length*sizeof(char), ext);
+
+      /*Enviamos cabeceras*/
+
+      if(my_send(clientsock, outBufferAux, strlen(outBufferAux)*sizeof(char)) < 0){
+        perror("Error enviando.\n");
+        close(f);
+        free (date);
+        free (modDate);
+        return ERROR;
+      }
+
+      /*Enviamos resultado de la ejecución*/
+
       if(my_send(clientsock, outBuffer, strlen(outBuffer)*sizeof(char) +100) < 0){
             perror("Error enviando");
             close(f);
@@ -489,9 +524,150 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
 /*Funcion que responde a un post*/
 /*En nuestro caso solo sirve para ejecutar scripts*/
 
-int post_response(char* server_signature, int clientsock, char* direc, char* cleanpath, char* args, int buffer_size,  char* outBuffer, int minor_version){
+int post_response(char* server_signature, int clientsock, char* direc, char* cleanpath, char* body, char* args_url, int max_buffer,  char* outBuffer, int minor_version){
+ int f;
+  int length;
+  int scriptflag = NO_SCRIPT;
+  char* date, *modDate, *ext;
+  char outBufferAux[max_buffer];
+  struct stat fStat;
+  char command[DIREC_SIZE+2];
+  FILE* pipe;
+
+  f = open(direc, O_RDONLY);
+  if(f < 0){
+    error_response(server_signature, clientsock, cleanpath, outBuffer, 404, minor_version);
+    return OK;
+  }
+
+  if(fstat(f, &fStat) < 0){ 
+    close(f);
+    return ERROR;
+  }
+
+  /*Rellenamos campos necesarios para crear la respuesta*/
+
+  date = get_date();
+  modDate = get_mod_time(&fStat); 
+  ext = filename_ext(direc);
+  
+  /*Cuando detectamos que el fichero a procesar se trata de un script, asignamos a la flag el valor correspondiente
+    y, como la salida de los scrips podria ser html, asignamos ese tipo de mensaje para que el navegador lo pueda interpretar*/
+  if(strcmp(ext, "py") == 0){
+    scriptflag = PYTHON_SCRIPT;
+    ext = "text/html";
+  }
+  else if (strcmp(ext, "php") == 0){
+    scriptflag = PHP_SCRIPT;
+    ext = "text/html";
+  }
+  else if(strcmp(ext, "") == 0){
+    error_response(server_signature, clientsock, cleanpath, outBuffer, 404, minor_version);
+    close(f);
+    free (date);
+    free (modDate);
+    return OK;
+  }
+
+  if(scriptflag == NO_SCRIPT){
+    error_response(server_signature, clientsock, cleanpath, outBuffer, 405, minor_version);
+    close(f);
+    free (date);
+    free (modDate);
+    return OK;
+  } 
+  else if (scriptflag == PYTHON_SCRIPT){
+
+      sprintf(command, "echo \"%s\" | python %s \"%s\"", body, direc, args_url);
+      pipe = popen(command, "r");
+      if(pipe == NULL)
+        return ERROR;
+
+      length = fread(outBuffer, max_buffer,1, pipe);
+        if(length < 0){
+          perror("Error leyendo.\n");
+          close(f);
+          free (date);
+          free (modDate);
+          return ERROR;
+        }
+        else if(length > 0){
+          sprintf(outBufferAux, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, length*sizeof(char), ext);
+          /*Enviamos cabeceras*/
+          if(my_send(clientsock, outBufferAux, length*sizeof(char)) < 0){
+            perror("Error enviando.\n");
+            close(f);
+            free (date);
+            free (modDate);
+            return ERROR;
+          }
+        /*Enviamos resultado de la ejecución*/
+          if(my_send(clientsock, outBuffer, length) < 0){
+            perror("Error enviando");
+            close(f);
+            free (date);
+            free (modDate);
+            return ERROR;
+        }
+      }
+      
+      if(pclose(pipe) == -1){
+        syslog(LOG_ERR, "Error en POST PYTHON SCRIPT: Error cerrando pipe");
+        close(f);
+        free (date);
+        free (modDate);
+        return ERROR;
+      }
+  }
+  else{ //Caso PHP_SCRIPT 
+      sprintf(command, "echo \"%s\" | php %s \"%s\"", body, direc, args_url);
+      pipe = popen(command, "r");
+      if(pipe == NULL)
+        return ERROR;
+
+      length = fread(outBuffer, max_buffer,1, pipe);
+        if(length < 0){
+          perror("Error leyendo.\n");
+          close(f);
+          free (date);
+          free (modDate);
+          return ERROR;
+        }
+        else if(length > 0){
+          sprintf(outBufferAux, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, length*sizeof(char), ext);
+          /*Enviamos cabeceras*/
+          if(my_send(clientsock, outBufferAux, length*sizeof(char)) < 0){
+            perror("Error enviando.\n");
+            close(f);
+            free (date);
+            free (modDate);
+            return ERROR;
+          }
+        /*Enviamos resultado de la ejecución*/
+          if(my_send(clientsock, outBuffer, length) < 0){
+            perror("Error enviando");
+            close(f);
+            free (date);
+            free (modDate);
+            return ERROR;
+        }
+      }
+
+      if(pclose(pipe) == -1){
+        syslog(LOG_ERR, "Error en POST PYTHON SCRIPT: Error cerrando pipe");
+        close(f);
+        free (date);
+        free (modDate);
+        return ERROR;
+      }
+  }
+
+  close(f);
+  free (date);
+  free (modDate);
   return OK;
 }
+
 
 
 

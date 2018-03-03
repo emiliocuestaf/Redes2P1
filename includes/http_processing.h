@@ -29,7 +29,7 @@ char *filename_ext(char *fname);
 
 int get_response(char* server_signature, int clientsock, char* direc, char* cleanpath, char* args, int buffer_size,  char* outBuffer, int minor_version);
 int options_response(char* server_signature, int clientsock, char*outBuffer, int minor_version, allowedMethods* am);
-int post_response(char* server_signature, int clientsock, char* direc, char* cleanpath, char* args, int buffer_size,  char* outBuffer, int minor_version);
+int post_response(char* server_signature, int clientsock, char* direc, char* cleanpath, char* body, char* args_url, int buffer_size,  char* outBuffer, int minor_version);
 /*Funcion que parsea una peticion HTTP*/
 
 int parse_petition(int clientsock, char* inBuffer, char* outBuffer, char* signature, char* root, long int buf_size);
