@@ -216,6 +216,7 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
     if(qptr == NULL){
       strcpy(cleanpath, auxpath);
       free(auxpath);
+      strcpy(args,"");
     }
     else{
       /*Caso en que hay ?, con aritmetica de punteros se puede solucionar
@@ -226,8 +227,12 @@ int parse_petition(int csock, char* inBuffer, char* outBuffer, char* signature, 
       free(auxpath);
     }
       FILE* fu;
-      fu = fopen("dedede.txt", "a");
+      fu = fopen("registrorutas.txt", "a");
       fprintf(fu, "%s\n", cleanpath);
+      fclose(fu);
+
+      fu = fopen("regsitroargumentos.txt", "a");
+      fprintf(fu, "%s\n", args);
       fclose(fu);
 
     if(allowed_methods(&am, cleanpath) == ERROR){
@@ -321,8 +326,7 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
   int scriptflag = NO_SCRIPT;
   char* date, *modDate, *ext;
   struct stat fStat;
-  char* argspointer;
-  char command[DIREC_SIZE+2];
+  char command[200];
   FILE* pipe;
 
   f = open(direc, O_RDONLY);
@@ -373,8 +377,10 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
     return ERROR;
   }
 
-  memset(outBuffer,0,max_buffer);
   length = max_buffer;
+  memset(outBuffer,0,max_buffer);
+
+
 
   if(scriptflag == NO_SCRIPT){
 
@@ -402,29 +408,31 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
 
       }
   } else if (scriptflag == PYTHON_SCRIPT){
-
+      FILE* esci;
+      esci = fopen("scriptes.txt", "w");
       sprintf(command, "python %s \"%s\"", direc, args);
+      fprintf(esci, "%s\n",command);
+      fclose(esci);
       pipe = popen(command, "r");
       if(pipe == NULL)
         return ERROR;
 
-      length = fread(outBuffer, max_buffer,1, pipe);
-        if(length < 0){
-          perror("Error leyendo.\n");
+      length = fread((void *) outBuffer, max_buffer,1, pipe);
+      if(length < 0){
+        perror("Error leyendo.\n");
+        close(f);
+        free (date);
+        free (modDate);
+        return ERROR;
+      }
+      if(my_send(clientsock, outBuffer, strlen(outBuffer)*sizeof(char)) < 0){
+          perror("Error enviando");
           close(f);
           free (date);
           free (modDate);
           return ERROR;
-        }
-        else if(length > 0){
-          if(my_send(clientsock, outBuffer, length) < 0){
-            perror("Error enviando");
-            close(f);
-            free (date);
-            free (modDate);
-            return ERROR;
-        }
       }
+      
       
       if(pclose(pipe) == -1){
         syslog(LOG_ERR, "Error en GET PYTHON SCRIPT: Error cerrando pipe");
@@ -437,28 +445,31 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
   else{ //Caso PHP_SCRIPT 
       sprintf(command, "php %s \"%s\"", direc, args);
       pipe = popen(command, "r");
+     
       if(pipe == NULL)
         return ERROR;
-
-      length = fread(outBuffer, max_buffer,1, pipe);
-        if(length < 0){
+      wait(5);
+      length = fread((void*)outBuffer, max_buffer,1, pipe);
+      if(length < 0){
+          FILE* registrolecturasscripts;
+          registrolecturasscripts = fopen("registrolecturas.txt", "a");
+          fprintf(registrolecturasscripts, "%s\nEERROR LEYENDO", outBuffer );
+          fclose(registrolecturasscripts);
           perror("Error leyendo.\n");
           close(f);
           free (date);
           free (modDate);
           return ERROR;
         }
-        else if(length > 0){
-          if(my_send(clientsock, outBuffer, length) < 0){
+
+      if(my_send(clientsock, outBuffer, strlen(outBuffer)*sizeof(char) +100) < 0){
             perror("Error enviando");
             close(f);
             free (date);
             free (modDate);
             return ERROR;
-        }
       }
-      
-
+  
       if(pclose(pipe) == -1){
         syslog(LOG_ERR, "Error en GET PYTHON SCRIPT: Error cerrando pipe");
         close(f);
