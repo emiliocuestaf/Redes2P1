@@ -598,7 +598,7 @@ int post_response(char* server_signature, int clientsock, char* direc, char* cle
       FD_ZERO(&descrSet);
       FD_SET(pipeDescr, &descrSet);
 
-      timeFlag = select(1, &descrSet, NULL, NULL, &timeOut);
+      timeFlag = select(pipeDescr + 1, &descrSet, NULL, NULL, &timeOut);
       if(timeFlag == -1){
           /*Error*/
           syslog(LOG_ERR,"POST-RESPONSE|PYTHON_SCRIPT: Error en select.\n");
@@ -665,7 +665,7 @@ int post_response(char* server_signature, int clientsock, char* direc, char* cle
       FD_ZERO(&descrSet);
       FD_SET(pipeDescr, &descrSet);
 
-      timeFlag = select(1, &descrSet, NULL, NULL, &timeOut);
+      timeFlag = select(pipeDescr+1, &descrSet, NULL, NULL, &timeOut);
       if(timeFlag == -1){
           /*Error*/
           syslog(LOG_ERR,"POST-RESPONSE|PHP_SCRIPT: Error en select.\n");

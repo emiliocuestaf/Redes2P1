@@ -39,7 +39,6 @@ static char* server_signature = NULL;
 /*Funcion que se encarga de manejar la señal SIGINT (Ctrl+C)*/
 
 void SIGINT_handler(){
-	cfg_free(cfg);
     free(server_root);
     free(server_signature);
     free(listen_port);
@@ -49,19 +48,17 @@ void SIGINT_handler(){
 	exit(-1);
 };
 
-//De momento va a contestar a todo con un mensaje fijo y un numero generado por una variable global. (Esto habra que quitarlo luego) 
 int handle_petition(int socket, char* inBuffer){
 
     parse_petition(socket, inBuffer, server_signature, server_root, buf_size); // ATENCION, CAMBIAR PRIMER ARGUMENTO
     
-    sleep(1);
-
     return 0;
 }
 
 int main(){
 
 	sigset_t set;
+    struct cfg_opt_t cfgopt;
 	struct addrinfo* addr;
 
     //Parseo de server.conf
@@ -74,13 +71,14 @@ int main(){
 		CFG_END()
 	};
 	
-
     cfg = cfg_init(opts, 0);
 
     if(cfg_parse(cfg, "./src/server.conf") == CFG_PARSE_ERROR){
         syslog(LOG_ERR, "Error en Concurrent Server: Error en cfg_parse()");
         return -1;
     }
+
+    cfg_free(cfg);
 
 
     /*if(demonizar() < 0){
@@ -99,7 +97,6 @@ int main(){
 
 	//Define una estructura que nos permite caracterizar el socket
 	if(getaddrinfo(NULL, listen_port, &hints, &addr)){
-		cfg_free(cfg);
         free(server_root);
         free(server_signature);
         free(listen_port);
@@ -110,7 +107,6 @@ int main(){
 	//Inicia el socket. Inluye socket(), bind() y listen()
     sock = server_socket_setup(addr, max_clients);
 	if(sock < 0){
-        cfg_free(cfg);
         free(server_root);
         free(server_signature);
         free(listen_port);
@@ -122,7 +118,6 @@ int main(){
 	freeaddrinfo(addr);
 
     if((pool = pool_ini(max_clients, sock, buf_size, handle_petition)) == NULL){
-        cfg_free(cfg);
         free(server_root);
         free(server_signature);
         free(listen_port);
@@ -137,7 +132,6 @@ int main(){
     sigemptyset(&set);
     sigaddset(&set, SIGINT);
     if (pthread_sigmask(SIG_UNBLOCK, &set, NULL) != 0){
-        cfg_free(cfg);
         free(server_root);
         free(server_signature);
         free(listen_port);
@@ -150,7 +144,6 @@ int main(){
 
     //Senial de finalizacion
     if(signal (SIGINT, SIGINT_handler) == SIG_ERR){
-        cfg_free(cfg);
         free(server_root);
         free(server_signature);
         free(listen_port);

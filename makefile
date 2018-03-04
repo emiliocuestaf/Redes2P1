@@ -15,7 +15,7 @@ OBJS =	concurrent_server.o \
 		daemon.o
 
 
-all : concurrent_server
+all : concurrent_server testcfg
 	rm -f *.o
 
 concurrent_server: $(OBJS) $(LIBS)/libconfuse.a
@@ -38,6 +38,12 @@ picohttpparser.o:	$(SRC)/picohttpparser.c $(INCLIB)/picohttpparser.h
 
 daemon.o:	$(SRC)/daemon.c $(INCLIB)/daemon.h
 	gcc $(CCFLAGS) -I./includes -c $(SRC)/daemon.c
+
+testcfg: $(OBJS) $(LIBS)/libconfuse.a
+	gcc $(CCFLAGS) -o testcfg $^ -lpthread
+
+testcfg.o: $(SRC)/testcfg.c
+	gcc $(CCFLAGS) -I./includes -c $(SRC)/testcfg.c
 
 clean:
 	rm -f *.o servidor
