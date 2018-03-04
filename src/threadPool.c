@@ -45,7 +45,7 @@ void* thread_behaviour(void* args){
     threadPool* datos = (threadPool*) args;
     int socket, listeningSocket, buffSize;
     int (*handler)(int, char*);
- 
+
     
 
     //Saca lo que necesita para un correcto funcionamiento al principio de su ejecucion.
@@ -58,15 +58,15 @@ void* thread_behaviour(void* args){
     handler = datos->handler_pointer;
     listeningSocket = datos->listeningSocketDescr;
     buffSize = datos->buffSize;
-     
+    
+    char inBuffer[buffSize];
+
+    memset(inBuffer,0,buffSize);
     if(pthread_mutex_unlock(&datos->sharedMutex) != 0){
     	syslog(LOG_ERR, "Error en thread: Error liberando mutex (datos)");
     	pthread_exit(NULL);
     }
     
-    char inBuffer[buffSize];
-    char outBuffer[buffSize];
- 
     while(1){
 
 
@@ -81,7 +81,6 @@ void* thread_behaviour(void* args){
 	    		syslog(LOG_ERR, "Error en thread: Error liberando mutex (finalizacion de ejecucion)");
 	    		pthread_exit(NULL);
 	    	}
-
 	    	pthread_exit(NULL);
     	}
 
@@ -102,15 +101,12 @@ void* thread_behaviour(void* args){
 		}
 		
 		if(handler(socket, inBuffer) == -1){
-			syslog(LOG_ERR, "Error en thread: Error en handler()");
-			//pthread_exit(NULL);
-			//No se debe cancelar el hilo si no puede procesar bien una peticion
+			syslog(LOG_ERR, "Error en thread: Peticion mal procesada");
+			//No se debe cancelar el hilo si no puede procesar bien una peticion, debe seguir funcionando y procesar otras
 		}
 		
 		close(socket);
-
 		bzero(inBuffer, strlen(inBuffer));
-		bzero(outBuffer, strlen(outBuffer));
     }
     pthread_exit(NULL);
     

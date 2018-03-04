@@ -1,1 +1,1 @@
-DIREC: /home/luiscarabe/REDES/practica1/files/scripts/pruebaPOST.py
+DIREC: /home/emi/redes2/practica1/files/scripts/pruebaPOST.py

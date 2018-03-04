@@ -7,6 +7,8 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/time.h>
+#include <sys/select.h>
 #include <syslog.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -15,6 +17,9 @@
 #include "socket_management.h"
 
 #define DIREC_SIZE 100
+#define COMMAND_SIZE 300
+
+#define TIMEOUT 10
 
 #define NO_SCRIPT 0
 #define PYTHON_SCRIPT 1
@@ -332,8 +337,12 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
   char outBufferAux[max_buffer];
   char outBuffer[max_buffer];
   struct stat fStat;
-  char command[200];
+  struct timeval timeOut;
+  char command[COMMAND_SIZE];
   FILE* pipe;
+
+  memset(outBuffer,0,max_buffer);
+
 
   f = open(direc, O_RDONLY);
   if(f < 0){
@@ -346,6 +355,7 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
     return ERROR;
   }
 
+  timeOut.tv_sec = (time_t) TIMEOUT;
   /*Rellenamos campos necesarios para crear la respuesta*/
 
   length = fStat.st_size;
@@ -428,7 +438,7 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
         return ERROR;
       }
 
-      sprintf(outBufferAux, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, strlen(outBuffer)*sizeof(char), ext);
+      sprintf(outBufferAux, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, (long unsigned int) length, ext);
       
       /*Enviamos cabeceras*/
 
@@ -443,7 +453,7 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
 
       /*Enviamos resultado de la ejecución*/
 
-      if(my_send(clientsock, outBuffer, strlen(outBuffer)*sizeof(char)) < 0){
+      if(my_send(clientsock, outBuffer, length) < 0){
           syslog(LOG_ERR, "Error enviando");
           close(f);
           free (date);
@@ -475,7 +485,7 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
           return ERROR;
         }
          
-       sprintf(outBufferAux, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, strlen(outBuffer)*sizeof(char), ext);
+       sprintf(outBufferAux, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, (long unsigned int) length, ext);
 
       /*Enviamos cabeceras*/
 
@@ -489,7 +499,7 @@ int get_response(char* server_signature, int clientsock, char* direc, char* clea
 
       /*Enviamos resultado de la ejecución*/
 
-      if(my_send(clientsock, outBuffer, strlen(outBuffer)*sizeof(char)) < 0){
+      if(my_send(clientsock, outBuffer, length) < 0){
             syslog(LOG_ERR,"Error enviando");
             close(f);
             free (date);
@@ -523,9 +533,15 @@ int post_response(char* server_signature, int clientsock, char* direc, char* cle
   char* date, *modDate, *ext;
   char outBufferAux[max_buffer];
   char outBuffer[max_buffer];
+  struct timeval timeOut;
+  fd_set descrSet;
+  int timeFlag;
   struct stat fStat;
-  char command[DIREC_SIZE+2];
+  char command[COMMAND_SIZE];
   FILE* pipe;
+  int pipeDescr;
+
+  memset(outBuffer,0,max_buffer);
 
   f = open(direc, O_RDONLY);
   if(f < 0){
@@ -538,6 +554,8 @@ int post_response(char* server_signature, int clientsock, char* direc, char* cle
     return ERROR;
   }
 
+  timeOut.tv_sec = (time_t) TIMEOUT;
+  timeOut.tv_usec = 0;
   /*Rellenamos campos necesarios para crear la respuesta*/
 
   date = get_date();
@@ -571,57 +589,63 @@ int post_response(char* server_signature, int clientsock, char* direc, char* cle
   } 
   else if (scriptflag == PYTHON_SCRIPT){
 
-            FILE* esta;
-      esta = fopen("talvezesta.txt", "w");
-      fprintf(esta, "DIREC: %s\n",direc);
-      fclose(esta);
-
-      esta = fopen("talvezesta2.txt", "w");
-      fprintf(esta, "BODY: %s\n",body);
-      fclose(esta);
-
-
       sprintf(command, "echo \"%s\" | python %s \"%s\"", body, direc, args_url);
       pipe = popen(command, "r");
       if(pipe == NULL)
         return ERROR;
 
-      
-      /*esta = fopen("esta.txt", "w");
-      fprintf(esta, "COMANDO: %s\n",command);
-      fclose(esta);
-*/
-      length = fread(outBuffer, 1,max_buffer, pipe);
-         
+      pipeDescr = fileno(pipe);
+      FD_ZERO(&descrSet);
+      FD_SET(pipeDescr, &descrSet);
 
-         esta = fopen("esta.txt", "w");
-      fprintf(esta, "SA%dLIDA: %s\n",length, outBuffer);
-      fclose(esta);
-
-    if(length < 0){
-      syslog(LOG_ERR,"Error leyendo.\n");
-      close(f);
-      free (date);
-      free (modDate);
-      return ERROR;
-    }
-      sprintf(outBufferAux, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, strlen(outBuffer)*sizeof(char), ext);
-      /*Enviamos cabeceras*/
-      if(my_send(clientsock, outBufferAux, strlen(outBufferAux)*sizeof(char)) < 0){
-        syslog(LOG_ERR,"Error enviando.\n");
-        close(f);
-        free (date);
-        free (modDate);
-        return ERROR;
+      timeFlag = select(1, &descrSet, NULL, NULL, &timeOut);
+      if(timeFlag == -1){
+          /*Error*/
+          syslog(LOG_ERR,"POST-RESPONSE|PYTHON_SCRIPT: Error en select.\n");
+          close(f);
+          pclose(pipe);
+          free (date);
+          free (modDate);
+          return ERROR;
       }
-    /*Enviamos resultado de la ejecución*/
-      if(my_send(clientsock, outBuffer, length) < 0){
-        syslog(LOG_ERR,"Error enviando");
-        close(f);
-        free (date);
-        free (modDate);
-        return ERROR;
-    }
+      else if(timeFlag == 0){
+          syslog(LOG_ERR,"POST-RESPONSE|PYTHON_SCRIPT: Timeout de ejecucion excedido.\n");
+      }
+      else{
+          /*Se ha escrito en el fichero antes del timeout*/
+          length = fread(outBuffer, 1,max_buffer, pipe);
+        
+          if(length < 0){
+            syslog(LOG_ERR,"Error leyendo.\n");
+            close(f);
+            pclose(pipe);
+            free (date);
+            free (modDate);
+            return ERROR;
+          }
+          sprintf(outBufferAux, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, (long unsigned int) length, ext);
+          
+          /*Enviamos cabeceras*/
+          if(my_send(clientsock, outBufferAux, strlen(outBufferAux)*sizeof(char)) < 0){
+            syslog(LOG_ERR,"Error enviando.\n");
+            close(f);
+            pclose(pipe);
+            free (date);
+            free (modDate);
+            return ERROR;
+          }
+          
+          /*Enviamos resultado de la ejecución*/
+          if(my_send(clientsock, outBuffer, length) < 0){
+            syslog(LOG_ERR,"Error enviando");
+            close(f);
+            pclose(pipe);
+            free (date);
+            free (modDate);
+            return ERROR;
+          }
+      }
+
       
       if(pclose(pipe) == -1){
         syslog(LOG_ERR, "Error en POST PYTHON SCRIPT: Error cerrando pipe");
@@ -637,20 +661,40 @@ int post_response(char* server_signature, int clientsock, char* direc, char* cle
       if(pipe == NULL)
         return ERROR;
 
+      pipeDescr = fileno(pipe);
+      FD_ZERO(&descrSet);
+      FD_SET(pipeDescr, &descrSet);
+
+      timeFlag = select(1, &descrSet, NULL, NULL, &timeOut);
+      if(timeFlag == -1){
+          /*Error*/
+          syslog(LOG_ERR,"POST-RESPONSE|PHP_SCRIPT: Error en select.\n");
+          close(f);
+          pclose(pipe);
+          free (date);
+          free (modDate);
+          return ERROR;
+      }
+      else if(timeFlag == 0){
+          syslog(LOG_ERR,"POST-RESPONSE|PHP_SCRIPT: Timeout de ejecucion excedido.\n");
+      }
+      else{
       length = fread(outBuffer, 1, max_buffer, pipe);
         if(length < 0){
           syslog(LOG_ERR,"Error leyendo.\n");
+          pclose(pipe);
           close(f);
           free (date);
           free (modDate);
           return ERROR;
-        }
+          }
        
-      sprintf(outBufferAux, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, strlen(outBuffer)*sizeof(char), ext);
+      sprintf(outBufferAux, "HTTP/1.%d 200 OK\r\nDate: %s\r\nServer: %s\r\nLast-Modified: %s\r\nContent-Length: %lu\r\nConnection: keep-alive\r\nContent-Type: %s\r\n\r\n", minor_version, date, server_signature, modDate, (long unsigned int) length, ext);
       /*Enviamos cabeceras*/
       if(my_send(clientsock, outBufferAux, strlen(outBufferAux)*sizeof(char)) < 0){
         syslog(LOG_ERR,"Error enviando.\n");
         close(f);
+        pclose(pipe);
         free (date);
         free (modDate);
         return ERROR;
@@ -659,15 +703,17 @@ int post_response(char* server_signature, int clientsock, char* direc, char* cle
       if(my_send(clientsock, outBuffer, length) < 0){
         syslog(LOG_ERR,"Error enviando");
         close(f);
+        pclose(pipe);
         free (date);
         free (modDate);
         return ERROR;
+      }
     }
-  
 
       if(pclose(pipe) == -1){
         syslog(LOG_ERR, "Error en POST PYTHON SCRIPT: Error cerrando pipe");
         close(f);
+        pclose(pipe);
         free (date);
         free (modDate);
         return ERROR;
