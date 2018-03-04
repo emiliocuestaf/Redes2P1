@@ -610,6 +610,12 @@ int post_response(char* server_signature, int clientsock, char* direc, char* cle
       }
       else if(timeFlag == 0){
           syslog(LOG_ERR,"POST-RESPONSE|PYTHON_SCRIPT: Timeout de ejecucion excedido.\n");
+          error_response(server_signature, clientsock, cleanpath, 408, minor_version, max_buffer);
+          close(f);
+          pclose(pipe);
+          free (date);
+          free (modDate);
+          return ERROR;
       }
       else{
           /*Se ha escrito en el fichero antes del timeout*/
@@ -677,6 +683,12 @@ int post_response(char* server_signature, int clientsock, char* direc, char* cle
       }
       else if(timeFlag == 0){
           syslog(LOG_ERR,"POST-RESPONSE|PHP_SCRIPT: Timeout de ejecucion excedido.\n");
+          error_response(server_signature, clientsock, cleanpath, 408, minor_version, max_buffer);
+          close(f);
+          pclose(pipe);
+          free (date);
+          free (modDate);
+          return ERROR;
       }
       else{
       length = fread(outBuffer, 1, max_buffer, pipe);
@@ -752,21 +764,7 @@ int error_response(char* server_signature, int clientsock, char* cleanpath, int 
   date = get_date();
     switch (errnum){
         
-        /*Caso Metodo No Implementado*/
-        case 501:
-          sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>501 Method Not Implemented</title>\n</head><body>\n<h1>Method Not Implemented</h1>\n<p>Only GET,POST,OPTIONS<br />\n</p>\n</body></html>");
-          
-          sprintf(outBuffer, "HTTP/1.%d 501 Method Not Implemented\r\nDate: %s\r\nServer: %s\r\nAllow: GET,POST,OPTIONS\r\nContent-Length: %lu\r\nConnection: close\r\nContent-Type: text/html\r\n\r\n%s\r\n", minor_version, date, server_signature, sizeof(char)*strlen(htmlCode), htmlCode);
-          break;
-
-        /*Caso archivo No Encontrado*/
-        case 404:
-          //sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>404 Not Found</title>\n</head><body>\n<h1>Not Found</h1>\n<p>The requested URL %s was not found on this server</p>\n</body> <img src=\"https://t00.deviantart.net/cjaQeweEbpdyNDQ_P6tmBz2x0Mo=/fit-in/700x350/filters:fixed_height(100,100):origin()/pre00/d98e/th/pre/i/2016/162/a/3/dead_link_by_mr_sage-d78unho.png\"></html>", cleanpath);
-          sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html lang = \"en\"><head>\n<title>%s could not be found</title>\n</head><body>\n<h1>404 RESOURCE NOT FOUND</h1>\n<p><img src = \"https://pre00.deviantart.net/d98e/th/pre/i/2016/162/a/3/dead_link_by_mr_sage-d78unho.png\"alt = \"Link not found\"/></p>\n</body></html>", cleanpath);
-
-
-          sprintf(outBuffer, "HTTP/1.%d 404 Not Found\r\nDate: %s\r\nServer: %s\r\nAllow: GET,POST,OPTIONS\r\nContent-Length: %lu\r\nConnection: close\r\nContent-Type: text/html\r\n\r\n%s\r\n", minor_version, date, server_signature, sizeof(char)*strlen(htmlCode), htmlCode);
-          break;
+        /*Caso en el que la peticion este mal formada*/
 
         case 400:
           sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>400 Bad Request</title>\n</head><body>\n<h1>Bad Request</h1>\n<p>The server could not understand the request due to invalid syntax.</p>\n</body></html>");
@@ -774,14 +772,42 @@ int error_response(char* server_signature, int clientsock, char* cleanpath, int 
           sprintf(outBuffer, "HTTP/1.%d 400 Bad Request\r\nDate: %s\r\nServer: %s\r\nAllow: GET,POST,OPTIONS\r\nContent-Length: %lu\r\nConnection: close\r\nContent-Type: text/html\r\n\r\n%s\r\n", minor_version, date, server_signature, sizeof(char)*strlen(htmlCode), htmlCode);
           break;
 
+        /*Caso archivo No Encontrado*/
+
+        case 404:
+          sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html lang = \"en\"><head>\n<title>%s could not be found</title>\n</head><body>\n<h1>404 RESOURCE NOT FOUND</h1>\n<p><img src = \"https://pre00.deviantart.net/d98e/th/pre/i/2016/162/a/3/dead_link_by_mr_sage-d78unho.png\"alt = \"Link not found\"/></p>\n</body></html>", cleanpath);
+
+          sprintf(outBuffer, "HTTP/1.%d 404 Not Found\r\nDate: %s\r\nServer: %s\r\nAllow: GET,POST,OPTIONS\r\nContent-Length: %lu\r\nConnection: close\r\nContent-Type: text/html\r\n\r\n%s\r\n", minor_version, date, server_signature, sizeof(char)*strlen(htmlCode), htmlCode);
+          break;
+
+        /*Caso en el que un metodo no este permitido*/
+
         case 405:
-          sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>405 Not allowed</title>\n</head><body>\n<h1>Not allowed</h1>\n<p>The method you are trying to use is not allowed in here.</p>\n</body></html>");
+          sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>405 Not Allowed</title>\n</head><body>\n<h1>Not Allowed</h1>\n<p>The method you are trying to use is not allowed in here.</p>\n</body></html>");
           
           sprintf(outBuffer, "HTTP/1.%d 405 Not Allowed\r\nDate: %s\r\nServer: %s\r\nAllow: GET,POST,OPTIONS\r\nContent-Length: %lu\r\nConnection: close\r\nContent-Type: text/html\r\n\r\n%s\r\n", minor_version, date, server_signature, sizeof(char)*strlen(htmlCode), htmlCode);
           break;
 
+        /*Caso en el que exista un timeout*/
+
+        case 408:
+          sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>408 Request Timeout</title>\n</head><body>\n<h1>Request Timeout</h1>\n<p>The server did not receive a complete request message within the time that it was prepared to wait.</p>\n</body></html>");
+          
+          sprintf(outBuffer, "HTTP/1.%d 408 Request Timeot\r\nDate: %s\r\nServer: %s\r\nAllow: GET,POST,OPTIONS\r\nContent-Length: %lu\r\nConnection: close\r\nContent-Type: text/html\r\n\r\n%s\r\n", minor_version, date, server_signature, sizeof(char)*strlen(htmlCode), htmlCode);
+          break;
+
+        /*Caso Metodo No Implementado*/
+
+        case 501:
+          sprintf(htmlCode, "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>501 Method Not Implemented</title>\n</head><body>\n<h1>Method Not Implemented</h1>\n<p>Only GET,POST,OPTIONS<br />\n</p>\n</body></html>");
+          
+          sprintf(outBuffer, "HTTP/1.%d 501 Method Not Implemented\r\nDate: %s\r\nServer: %s\r\nAllow: GET,POST,OPTIONS\r\nContent-Length: %lu\r\nConnection: close\r\nContent-Type: text/html\r\n\r\n%s\r\n", minor_version, date, server_signature, sizeof(char)*strlen(htmlCode), htmlCode);
+          break;
+
         default:
-          printf("Error no implementado.\n");
+          syslog(LOG_ERR, "Error no implementado");
+          free(date);
+          return ERROR;
     
     }
     if(my_send(clientsock, outBuffer, strlen(outBuffer)) < 0){

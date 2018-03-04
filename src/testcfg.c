@@ -14,7 +14,7 @@
 
 int sock;
 cfg_t *cfg;
-threadPool* pool;
+//threadPool* pool;
 
 //Seniales parseo de server conf
 static char* server_root = NULL;
@@ -25,9 +25,9 @@ static char* server_signature = NULL;
 
 int main(){
 
-	sigset_t set;
+//	sigset_t set;
     struct cfg_opt_t cfgopt;
-	struct addrinfo* addr;
+//x	struct addrinfo* addr;
 
     //Parseo de server.conf
     cfg_opt_t opts[] = {
@@ -43,13 +43,20 @@ int main(){
 
     if(cfg_parse(cfg, "./src/server.conf") == CFG_PARSE_ERROR){
         syslog(LOG_ERR, "Error en Concurrent Server: Error en cfg_parse()");
-        return -1;
-    }
-
-    cfg_free(cfg);
+            
     free(server_root);
     free(server_signature);
     free(listen_port);
+    cfg_free(cfg);
+
+        return -1;
+    }
+
+    
+    free(server_root);
+    free(server_signature);
+    free(listen_port);
+    cfg_free(cfg);
 
     return 0;
 }
