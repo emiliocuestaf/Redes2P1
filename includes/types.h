@@ -3,5 +3,4 @@
 
 typedef void (*handlerPtr)(char*, char*);
 
-
 #endif

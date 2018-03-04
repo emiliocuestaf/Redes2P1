@@ -21,9 +21,6 @@ all : concurrent_server testcfg
 concurrent_server: $(OBJS) $(LIBS)/libconfuse.a
 	gcc $(CCFLAGS) -o servidor $^ -lpthread
 
-testcfg: testcfg.o
-	gcc $(CCFLAGS) -o testcfg $^ -lpthread -lconfuse
-
 concurrent_server.o:	$(SRC)/concurrent_server.c
 	gcc $(CCFLAGS) -I./includes -c $(SRC)/concurrent_server.c
 
@@ -41,9 +38,6 @@ picohttpparser.o:	$(SRC)/picohttpparser.c $(INCLIB)/picohttpparser.h
 
 daemon.o:	$(SRC)/daemon.c $(INCLIB)/daemon.h
 	gcc $(CCFLAGS) -I./includes -c $(SRC)/daemon.c
-
-testcfg.o: $(SRC)/testcfg.c
-	gcc $(CCFLAGS) -I./includes -c $(SRC)/testcfg.c
 
 clean:
 	rm -f *.o servidor testcfg

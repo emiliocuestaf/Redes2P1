@@ -1,1 +1,0 @@
-DIREC: /home/emi/redes2/practica1/files/scripts/pruebaPOST.py

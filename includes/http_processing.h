@@ -8,6 +8,11 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#define DIREC_SIZE 100
+#define COMMAND_SIZE 300
+
+#define TIMEOUT 10
+
 #define ERROR 1
 #define OK 0
 
