@@ -4,7 +4,7 @@
 	</head>
 	<body>
 		<?php
-			var_dump($argv);
+			var_dump($argv[1]);
 		?>
 	</body>
 </html>

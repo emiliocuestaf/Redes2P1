@@ -2,6 +2,12 @@
  
 import sys
 
-argumentos = float(raw_input())
-resultado = 1.8*argumentos + 32
-print "La temperatura en Farenheit es: ", resultado
+argumentos = raw_input()
+
+try:
+	float(argumentos)
+	argumentos = float(argumentos)
+	resultado = 1.8*argumentos + 32	
+	print "La temperatura en Fahrenheit es: ", resultado
+except ValueError:
+	print "Por favor, introduzca un numero la proxima vez"
