@@ -10,25 +10,40 @@
 
 #include "threadPool.h"
 
+/********
+* ESTRUCTURA: threadPool
+* DESCRIPCIÓN: Estructura que almacena informacion de un pool estatico de hilos mientras este se esta ejecutando
+* CAMPOS:
+*			- pthread_mutex_t sharedMutex: Regula el acceso de los hilos a memoria compartida. En este codigo sera justo esta misma estructura.
+*			- int numThr: Numero de hilos corriendo en el Pool
+*			- int pthread_t* listeningSocketDescr: Socket desde el que se escucha por peticiones.
+*			- int (*handler_pointer)(int, char*) : Puntero a la funcion que determina como se procesa la peticion recibida Y ENVIA LA RESPUESTA
+*			- long int buffSize: tamaño de los buffer en los que se recibe y se envian las peticiones/respuestas.
+*			- int stopThreads: Flag utilizado para avisar a los hilos de que deben finalizar su ejecución.
+*
+********/
 typedef struct _threadPool{
 	
-	//Este mutex regula el acceso de los hilos a memoria compartida, que es justo esta estructura.
 	pthread_mutex_t sharedMutex;
-	//Hemos visto que accept es thread-safe, por eso no se incluye un semaforo/mutex para su acceso
 	int numThr;
 	pthread_t* threadList;
 	int listeningSocketDescr;
-	//Puntero a funcion handler	
 	int (*handler_pointer)(int, char*);
-	//Tamaño del buffer de peticiones de entrada/salida
 	long int buffSize;
-	//Flag para una finalizacion correcta de los hilos.
 	int stopThreads;
 	
 } threadPool;
 
 
-
+/********
+* FUNCIÓN AUXILIAR:  thread_behaviour(void* args)
+* ARGS_IN:  void* args - estructura que contiene los argumentos que se necesitan 
+						 para la aceptacion de peticiones y su procesamiento.
+						 El casting a void* es necesario por la libreria lpthread,
+						 pero en realidad se trata de un threadPool* (estructura presente arriba)             
+* DESCRIPCIÓN: Funcion que determina el funcionamiento de cada uno de los hilos del pool.
+* ARGS_OUT: No hay retorno. El hilo mantiene la ejecucion hasta que se cierra.
+********/
 void* thread_behaviour(void* args){    
 	//Casting de la estructura de memoria compartida
     threadPool* datos = (threadPool*) args;
@@ -101,6 +116,15 @@ void* thread_behaviour(void* args){
     
 }
 
+/********
+* FUNCIÓN:  threadPool* pool_ini(int numThr, int listeningSocketDescr, int buffSize, int(*handler_pointer)(int, char*));
+* ARGS_IN:  int numThr - numero de hilos que va a mantener constantemente abiertos. 
+            int listeningSocketDescr - socket que esta escuchando por el puerto, a trave de el se aceptan las peticiones.
+            int buffSize - tamaño del buffer de las peticiones tanto de entrada como de respuesta.
+            int(*handler_pointer)(int, char*) - puntero a la funcion que determinara el manejo de las peticiones recibidas.
+* DESCRIPCIÓN: Funcion que sirve para inicializar un thread Pool estatico.
+* ARGS_OUT: Un puntero al pool de threads creado o NULL en caso de error.
+********/
 threadPool* pool_ini(int numThr, int listeningSocketDescr, int buffSize, int(*handler_pointer)(int, char*)){
 	int i;
 	threadPool* pool;
@@ -157,6 +181,12 @@ threadPool* pool_ini(int numThr, int listeningSocketDescr, int buffSize, int(*ha
 	return pool;
 }
 
+/********
+* FUNCIÓN:  void pool_free(threadPool* pool);  
+* ARGS_IN:  threadPool* pool - pool de hilos que se va a liberar, cancelando todos los hilos.             
+* DESCRIPCIÓN: Funcion que sirve para liberar un thread Pool estatico.
+* ARGS_OUT: void
+********/
 void pool_free(threadPool* pool){
 	int i;
 	

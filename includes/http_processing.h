@@ -29,7 +29,7 @@
 #include "picohttpparser.h"
 #include "socket_management.h"
 
-#define DIREC_SIZE 100
+#define DIREC_SIZE 200
 #define COMMAND_SIZE 300
 
 #define NO_SCRIPT 0
