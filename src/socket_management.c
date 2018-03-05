@@ -8,16 +8,7 @@
 *	Unidad de manejo de sockets
 ********************************************************/
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <syslog.h>
-#include <unistd.h>
-#include <string.h>
 #include "socket_management.h"
-
-
 
 //Estas son las estructuras con la que vamos a trabajar. Pertenece a <netinet/in.h>
 
@@ -43,11 +34,26 @@ struct in_addr {
     unsigned long s_addr;  // load with inet_aton()
 }; */
 
+/********
+* FUNCIÓN: int socket_create(struct addrinfo* addr)
+* ARGS_IN: struct addrinfo* addr - estructura que caracteriza al socket que queremos crear
+* DESCRIPCIÓN: Crea un socket
+* ARGS_OUT: int - devuelve el retorno de socket (-1 en caso de error, el descriptor de fichero en caso contrario)
+********/
+
 int socket_create(struct addrinfo* addr){
-    if(addr == NULL)
+	if(addr == NULL)
         return -1;
     return socket(addr->ai_family, addr->ai_socktype,  addr->ai_protocol);
 }
+
+/********
+* FUNCIÓN: 	int socket_bind(struct addrinfo* addr, int sockval)
+* ARGS_IN: 	struct addrinfo* addr - estructura que contiene informacion con la que asociar el socket
+*			int sockval - descriptor del socket
+* DESCRIPCIÓN: Asociamos un socket con un puerto contenido en addr
+* ARGS_OUT: int - devuelve el retorno de bind (-1 en caso de error, 0 en caso contrario)
+********/
 
 int socket_bind(struct addrinfo* addr, int sockval){
     if(addr == NULL || sockval < 0)
@@ -55,11 +61,27 @@ int socket_bind(struct addrinfo* addr, int sockval){
     return bind(sockval, addr->ai_addr, addr->ai_addrlen);
 }
 
+/********
+* FUNCIÓN: 	int socket_listen(int sockval, int max_clients)
+* ARGS_IN: 	int max_clients - numero maximo de conexiones permitidas
+*			int sockval - descriptor del socket
+* DESCRIPCIÓN: Espera conexiones entrantes del socket
+* ARGS_OUT: int - devuelve el retorno de listen (-1 en caso de error, 0 en caso contrario)
+********/
+
 int socket_listen(int sockval, int max_clients){
     if(max_clients < 0 || sockval < 0)
         return -1;
     return listen (sockval, max_clients);
 }
+
+/********
+* FUNCIÓN: 	int socket_connect(int clientsock, struct addrinfo* addr)
+* ARGS_IN: 	struct addrinfo* addr - estructura que contiene informacion del socket al cual haces la peticion
+*			int sockval - descriptor del socket
+* DESCRIPCIÓN: Crea una peticion de conexion del socket clientsock a la direccion addr
+* ARGS_OUT: int - devuelve el retorno de connect (-1 en caso de error, 0 en caso contrario)
+********/
 
 int socket_connect(int clientsock, struct addrinfo* addr){
     if(clientsock < 0 || addr == NULL)
@@ -67,28 +89,49 @@ int socket_connect(int clientsock, struct addrinfo* addr){
     return connect(clientsock, addr->ai_addr, addr->ai_addrlen);
 }
 
+/********
+* FUNCIÓN: 	int my_receive (int clientsock, char* inBuffer, long int buf_size)
+* ARGS_IN: 	int clientsock - socket que da la informacion tenemos que leer
+			char* inBuffer - buffer donde guardamos lo leido
+			long int buf_size - tamanio maximo que podemos leer
+* DESCRIPCIÓN: Lee los datos enviados por clientsock y los guarda en inBuffer
+* ARGS_OUT: int - devuelve el retorno de recv (-1 en caso de error, bytes leidos en caso contrario)
+********/
+
 int my_receive (int clientsock, char* inBuffer, long int buf_size){
     if(inBuffer == NULL)
         return -1;
-    
     return recv(clientsock, inBuffer, buf_size, 0);
 }
+
+/********
+* FUNCIÓN: 	int my_send (int clientsock, char* ouBuffer, int length)
+* ARGS_IN: 	int clientsock - socket donde vamos a enviar la informacion
+			char* outBuffer - buffer donde esta almacenada la informacion
+			int length - tamanio de la informacion a enviar
+* DESCRIPCIÓN: Envia los datos almacenados en outBuffer al clientsock
+* ARGS_OUT: int - devuelve el retorno de send (-1 en caso de error, bytes enviados en caso contrario)
+********/
 
 int my_send (int clientsock, char* outBuffer, int length){
     if(outBuffer == NULL)
         return -1;
-
     return send(clientsock, outBuffer, length, 0);
 }
 
+/********
+* FUNCIÓN: 	int server_socket_setup(struct addrinfo* addr, int max_clients)
+* ARGS_IN: 	struct addrinfo* addr - estructura que almacena la informacion que queremos asociar al socket
+			int max_clients - numero maximo de conexiones permitidas
+* DESCRIPCIÓN: Pone en marcha el socket del servidor
+* ARGS_OUT: int - devuelve -1 en caso de error, el descriptor del socket en caso contrario
+********/
 
-//Funcion de las diapos algo modificada
 int server_socket_setup(struct addrinfo* addr, int max_clients){
 	int sockval;
 	int opt;
-	//Ojo, sockaddr_in para que sea un servidor de internet, sockaddr_un, para que sea local
 
-	//struct sockaddr_in Direccion;
+	/*Creamos el socket*/
 
 	syslog (LOG_INFO, "Creating socket");
 	sockval = socket_create(addr);
@@ -97,22 +140,16 @@ int server_socket_setup(struct addrinfo* addr, int max_clients){
 		return -1;
 	}
 
-	//Estas dos asignaciones las satisface el campo ai_addr de addr fijo 
-	//Direccion.sin_family=AF_INET; /* TCP/IP family */
-	//Direccion.sin_port=htons(NFC_SERVER_PORT); /* Assigning port ¿Por que este puerto? Diria que es al azar*/
-	
-	//Pa mi que esto es importante
-	//Estas no lo tengo nada claro
-	//Direccion.sin_addr.s_addr=htonl(INADDR_ANY); /* Accept all adresses */
-	//bzero((void *)&(Direccion.sin_zero), 8); 
+	/*Ajustamos las opciones del socket que acabamos de crear, permitiendo que pueda reusar direcciones*/
 
-	//Copypaste de Internet, aun no se que hace, lo dejo porsiaca
 	opt = 1;
 	if (setsockopt(sockval, SOL_SOCKET, SO_REUSEADDR,
                    &opt, sizeof(int)) < 0) {
       syslog(LOG_ERR, "[bindListener:43:setsockopt]");
       return -1;
     }
+
+    /* Asociamos el socket creado con el puerto correspondiente guardado en addr*/
 
 	syslog (LOG_INFO, "Binding socket");
 
@@ -121,9 +158,9 @@ int server_socket_setup(struct addrinfo* addr, int max_clients){
 		return -1;
 	}
 
+	/*Hacemos que el socket se ponga a escuchar posibles peticiones que le lleguen*/
+
 	syslog(LOG_INFO, "Listening connections");
-	//Listen activa una rutina de recepcion y encolado de peticiones en "segundo plano". Una vez se llama a esta 
-	//funcion el socket se queda escuchando (imagino que hasta su cierre o hasta que se le indique que pare)
 	if (socket_listen(sockval, max_clients) < 0){
 		syslog(LOG_ERR, "Error listenining");
 		return -1;
@@ -133,12 +170,20 @@ int server_socket_setup(struct addrinfo* addr, int max_clients){
 
 }
 
+/********
+* FUNCIÓN: 	int accept_connection(int sockval)
+* ARGS_IN: 	int sockval - descriptor del socket
+* DESCRIPCIÓN: Acepta una conexion de la cola de conexiones del socket
+* ARGS_OUT: int - devuelve -1 en caso de error, el descriptor del socket que hemos aceptado en caso contrario
+********/
 
-//Como su propio nombre indica, acepta una conexion. Funcion de las diapositivas
 int accept_connection(int sockval){
 	int desc;
     socklen_t len;
 	struct sockaddr Conexion;
+
+	/*Llamamos a la funcion que acepta una conexion de la cola de conexiones de sockval, guardamos la informacion del socket que
+	se quiere comunicar con nosotros en Conexion*/
 
 	len = sizeof(Conexion);
     desc = accept(sockval, &Conexion, &len);
@@ -149,23 +194,4 @@ int accept_connection(int sockval){
 
 	return desc;
 	
-}
-
-
-int client_socket_setup(struct addrinfo* addr){
-	int clientsock;
-    
-    clientsock = socket_create(addr);
-	if(clientsock < 0){
-			syslog(LOG_ERR, "Error en clientsock");
-			return -1;
-	}
-
-	if(socket_connect(clientsock, addr) < 0){
-		close(clientsock);
-		syslog(LOG_ERR, "Error conectando el cliente");
-		return -1;
-	}
-
-	return clientsock;
 }

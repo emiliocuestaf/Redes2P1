@@ -16,3 +16,10 @@ int py_script_handler(char*bufferIn, char* bufferOut);
 //Algunas mas de particion de archivos y esas cosas imagino
 
 #endif
+
+/********
+* FUNCIÓN: int demonizar()
+* ARGS_IN: 
+* DESCRIPCIÓN: Procesa la petición de entrada, y blah, blah...
+* ARGS_OUT: char * - devuelve un puntero señalado el verbo de la petición recibida
+********/

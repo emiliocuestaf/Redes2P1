@@ -1,11 +1,16 @@
-# banderas de compilacion (PUEDE SER UTIL CAMBIARLAS)
+#Autores:
+#	-Emilio Cuesta Fernandez
+# 	-Luis Carabe Fernandez-Pedraza
+#	2302 - pareja 05
+
+# Makefile para generar el ejecutable server
+
+
 CCFLAGS = -Wextra -std=gnu11 -Wall -g
 
 
 SRC = ./src
 INCLIB = ./includes
-SRCLIB = ./srclib
-LIBS = ./lib
 
 OBJS =	concurrent_server.o \
 		socket_management.o \
@@ -15,11 +20,11 @@ OBJS =	concurrent_server.o \
 		daemon.o
 
 
-all : concurrent_server testcfg
+all : concurrent_server
 	rm -f *.o
 
-concurrent_server: $(OBJS) $(LIBS)/libconfuse.a
-	gcc $(CCFLAGS) -o servidor $^ -lpthread
+concurrent_server: $(OBJS) 
+	gcc $(CCFLAGS) -o server $^ -lpthread -lconfuse
 
 concurrent_server.o:	$(SRC)/concurrent_server.c
 	gcc $(CCFLAGS) -I./includes -c $(SRC)/concurrent_server.c
@@ -40,4 +45,4 @@ daemon.o:	$(SRC)/daemon.c $(INCLIB)/daemon.h
 	gcc $(CCFLAGS) -I./includes -c $(SRC)/daemon.c
 
 clean:
-	rm -f *.o servidor testcfg
+	rm -f *.o server

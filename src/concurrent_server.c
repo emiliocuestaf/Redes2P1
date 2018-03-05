@@ -28,17 +28,24 @@ int sock;
 cfg_t *cfg;
 threadPool* pool;
 
-//Seniales parseo de server conf
+/*Seniales parseo de server conf*/
 static char* server_root = NULL;
 static long int max_clients = 0;
 static long int buf_size = 0;
+static long int timeout = 0;
 static char* listen_port = NULL;
 static char* server_signature = NULL;
 
 
-/*Funcion que se encarga de manejar la señal SIGINT (Ctrl+C)*/
+/********
+* FUNCIÓN: void SIGINT_handler()
+* DESCRIPCIÓN: Se encarga de manejar la señal SIGINT (Ctrl+C)
+********/
 
 void SIGINT_handler(){
+
+    /*Liberamos recursos y salimos del proceso*/
+
     free(server_root);
     free(server_signature);
     free(listen_port);
@@ -46,56 +53,74 @@ void SIGINT_handler(){
     pool_free(pool);
     syslog(LOG_ERR, "Servidor cerrado: SIGINT");
 	exit(-1);
-};
+}
+
+/********
+* FUNCIÓN:  int handle_petition(int socket, char* inBuffer)
+* ARGS_IN:  int socket - descriptor del socket al cual debemos enviar la respuesta
+            char* inBuffer - peticion leida
+* DESCRIPCIÓN: Maneja una peticion que llegue al servidor
+* ARGS_OUT: int - devuelve el retorno de parse_petition (-1 en caso de error,  0 en caso contrario)
+********/
 
 int handle_petition(int socket, char* inBuffer){
 
-    parse_petition(socket, inBuffer, server_signature, server_root, buf_size); // ATENCION, CAMBIAR PRIMER ARGUMENTO
-    
-    return 0;
+    return parse_petition(socket, inBuffer, server_signature, server_root, buf_size, timeout);
 }
+
+/********
+* FUNCIÓN:  int main()
+* DESCRIPCIÓN: Funcion main del servidor
+* ARGS_OUT: int - 1 en caso de error,  0 en caso contrario
+********/
 
 int main(){
 
 	sigset_t set;
-    struct cfg_opt_t cfgopt;
 	struct addrinfo* addr;
 
-    //Parseo de server.conf
+    /*Inicializamos la estructura que necesitaremos en el parseo de server.conf*/
+
     cfg_opt_t opts[] = {
 		CFG_SIMPLE_STR("server_root", &server_root),
 		CFG_SIMPLE_INT("max_clients", &max_clients),
 		CFG_SIMPLE_STR("listen_port", &listen_port),
 		CFG_SIMPLE_STR("server_signature", &server_signature),
 		CFG_SIMPLE_INT("buf_size", &buf_size),
+        CFG_SIMPLE_INT("timeout", &timeout),
 		CFG_END()
 	};
 	
     cfg = cfg_init(opts, 0);
 
-    if(cfg_parse(cfg, "./src/server.conf") == CFG_PARSE_ERROR){
+    /*Parseamos server.conf*/
+
+    if(cfg_parse(cfg, "server.conf") == CFG_PARSE_ERROR){
         syslog(LOG_ERR, "Error en Concurrent Server: Error en cfg_parse()");
         return -1;
     }
 
     cfg_free(cfg);
 
+    /*Demonizamos el proceso*/
 
-    /*if(demonizar() < 0){
+    if(demonizar() < 0){
         syslog(LOG_ERR, "Error en Concurrent Server: Error en demonizar()");
         return -1;
-    }*/
+    }
 	
-	//La estructura hints se pasa a getaddrinfo con una serie de parametros que queremos que cumpla la direccion que se devuelve en addr
+	/*La estructura hints se pasa a getaddrinfo con una serie de parametros que queremos que cumpla la direccion que se devuelve en addr*/
+
 	struct addrinfo hints;
 
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_STREAM; 
+	hints.ai_family = AF_INET; // Vamos a manejar direcciones IPv4
+	hints.ai_socktype = SOCK_STREAM; // Conexiones TCP
     hints.ai_flags = AI_ALL; 
-	hints.ai_protocol = 0;
-	//El 0 elige el protocolo que mejor se adapta al resto de campos introducidos.
+	hints.ai_protocol = 0; //El 0 elige el protocolo que mejor se adapta al resto de campos introducidos.
+	
 
-	//Define una estructura que nos permite caracterizar el socket
+	/*Definimos una estructura que nos permite caracterizar el socket*/
+
 	if(getaddrinfo(NULL, listen_port, &hints, &addr)){
         free(server_root);
         free(server_signature);
@@ -104,7 +129,8 @@ int main(){
 		return -1;
 	}
 
-	//Inicia el socket. Inluye socket(), bind() y listen()
+	/*Iniciamos el socket. Inluye socket(), bind() y listen()*/
+
     sock = server_socket_setup(addr, max_clients);
 	if(sock < 0){
         free(server_root);
@@ -117,6 +143,8 @@ int main(){
 
 	freeaddrinfo(addr);
 
+    /*Inicializamos el pool de threads, pasando toda la informacion necesaria*/
+
     if((pool = pool_ini(max_clients, sock, buf_size, handle_petition)) == NULL){
         free(server_root);
         free(server_signature);
@@ -128,7 +156,8 @@ int main(){
     }
 
 
-    //Desbloquea sigint en el hilo principal
+    /*Desbloquea sigint en el hilo principal, nos aseguramos de que sea el unico que maneja la señal*/
+
     sigemptyset(&set);
     sigaddset(&set, SIGINT);
     if (pthread_sigmask(SIG_UNBLOCK, &set, NULL) != 0){
@@ -142,7 +171,8 @@ int main(){
         return -1;
     }
 
-    //Senial de finalizacion
+    /* Asociamos la señal de interrupcion a la funcion que se encarga de manejarla*/
+
     if(signal (SIGINT, SIGINT_handler) == SIG_ERR){
         free(server_root);
         free(server_signature);
@@ -154,7 +184,9 @@ int main(){
         return -1;
     }
 
-	while(1);
+    /*Dejamos al proceso corriendo hasta que reciba la señal de interrupcion*/
+
+	while(1); 
     
-	return 0;
+	return 0; // No deberia llegar nunca
 }

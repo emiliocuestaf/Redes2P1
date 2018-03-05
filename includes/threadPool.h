@@ -8,10 +8,8 @@
 *	Funciones principales de un pool estatico de threads
 ********************************************************/
 
-
 #ifndef PROCPOOL_H
    #define PROCPOOL_H
-
 
 #include <stdio.h>
 #include <stdlib.h>

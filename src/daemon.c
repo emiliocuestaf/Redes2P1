@@ -1,8 +1,19 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
+/*******************************************************
+* PRÁCTICAS DE REDES 2
+* Practica 1
+* Autores:
+* 	-Luis Carabe Fernandez-Pedraza
+*	-Emilio Cuesta Fernandez
+* Descripcion:
+*	Modulo que se encarga de demonizar un proceso
+********************************************************/
 #include "daemon.h"
 
+/********
+* FUNCIÓN: int demonizar()
+* DESCRIPCIÓN: Se encarga de demonizar un proceso
+* ARGS_OUT: int - devuelve 1 en caso de error, 0 en caso contrario
+********/
 
 int demonizar(){
 	pid_t pid;
