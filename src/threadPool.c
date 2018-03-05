@@ -8,18 +8,7 @@
 *	Funciones principales de un pool estatico de threads
 ********************************************************/
 
-#include <netinet/in.h>
-#include <netdb.h>
-#include <string.h>
-#include <syslog.h>
-#include <unistd.h>
-#include <locale.h>
-#include <signal.h>
-#include <pthread.h>
-#include "socket_management.h"
 #include "threadPool.h"
-
-#define BUFFER_SIZE 1000
 
 typedef struct _threadPool{
 	
@@ -33,7 +22,7 @@ typedef struct _threadPool{
 	int (*handler_pointer)(int, char*);
 	//Tamaño del buffer de peticiones de entrada/salida
 	long int buffSize;
-	//Flag para una finalizacion mas o menos correcta de los hilos.
+	//Flag para una finalizacion correcta de los hilos.
 	int stopThreads;
 	
 } threadPool;
