@@ -261,12 +261,14 @@ int parse_petition(int csock, char* inBuffer, char* signature, char* root, long 
       strcpy(args,""); //No hay argumentos de entrada
     }
     else{
-      /*Caso en que hay ?, con aritmetica de punteros se puede solucionar
+        /*Caso en que hay ?, con aritmetica de punteros se puede solucionar
         Tambien se guarda la cadena de argumentos, que mas tarde puede ser necesaria */
-      sprintf(cleanpath, "%.*s", ((int) ((qptr-auxpath))*sizeof(char)), auxpath); // cleanpath contiene la direccion sin los argumentos de script
-      sprintf(args, "%.*s", ((int) (((auxpath+path_len)-qptr))*sizeof(char)), qptr+1); //args tiene los argumentos del script
-
-      free(auxpath);
+        int auxiliar;
+        auxiliar = (int) (qptr-auxpath) *sizeof(char);
+        sprintf(cleanpath, "%.*s", auxiliar, auxpath); // cleanpath contiene la direccion sin los argumentos de script
+        auxiliar = (int) ((auxpath+path_len)-qptr) *sizeof(char);
+        sprintf(args, "%.*s", auxiliar , qptr+1); //args tiene los argumentos del script
+        free(auxpath);
     }
 
     /*Miramos que metodos estan permitidos en esa rutaa*/
